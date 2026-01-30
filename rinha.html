@@ -11,19 +11,55 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Roboto:wght@400;700;900&display=swap');
 
+        :root {
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+            --nav-height: 64px;
+            --header-height: auto;
+        }
+
         body { 
             font-family: 'Roboto', sans-serif; 
             overscroll-behavior-y: none;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
+            height: 100dvh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: fixed; /* Previne scroll elástico no iOS */
         }
+        
         h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
+
+        /* --- LAYOUT AVANÇADO --- */
+        .screen-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom) + 80px); /* Espaço extra para botões fixos */
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+        }
+
+        #bottom-nav {
+            height: calc(var(--nav-height) + var(--safe-area-bottom));
+            padding-bottom: var(--safe-area-bottom);
+            z-index: 100;
+            background: rgba(2, 6, 23, 0.95);
+            backdrop-filter: blur(12px);
+        }
+
+        /* --- UTILS --- */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* --- ANIMAÇÕES --- */
         @keyframes attack-l { 0% { transform: translateX(0) scale(1); } 50% { transform: translateX(60px) scale(1.2); } 100% { transform: translateX(0) scale(1); } }
         @keyframes attack-r { 0% { transform: translateX(0) scaleX(-1) scale(1); } 50% { transform: translateX(-60px) scaleX(-1) scale(1.2); } 100% { transform: translateX(0) scaleX(-1) scale(1); } }
         @keyframes damage-shake { 0%, 100% { filter: brightness(1); transform: translate(0,0); } 20% { filter: sepia(1) hue-rotate(-50deg) saturate(5); transform: translate(-8px, 8px); } 40% { filter: sepia(1) hue-rotate(-50deg) saturate(5); transform: translate(8px, -8px); } }
-        @keyframes victory-jump { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-20px) scale(1.1); filter: drop-shadow(0 0 10px gold); } }
+        @keyframes victory-jump { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-20px) scale(1.1); filter: drop-shadow(0 0 10 gold); } }
         
         @keyframes knockout-l {
             0% { transform: rotate(0) translateY(0); filter: grayscale(0); }
@@ -80,9 +116,10 @@
         }
 
         /* UI Helpers */
-        .btn-glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .btn-glass-selected { background: rgba(255, 255, 255, 0.25); border-color: rgba(255, 255, 255, 0.8); box-shadow: 0 0 15px rgba(255, 255, 255, 0.3); }
-        .modal-base { transition: all 0.3s ease-out; }
+        .btn-glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-glass-selected { background: rgba(255, 255, 255, 0.15); border-color: rgba(250, 204, 21, 0.5); box-shadow: 0 0 20px rgba(250, 204, 21, 0.2); }
+        .glass-panel { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .modal-base { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .modal-hidden { opacity: 0; pointer-events: none; transform: scale(0.95); }
         .modal-visible { opacity: 1; pointer-events: auto; transform: scale(1); }
         
@@ -92,6 +129,81 @@
         /* Tournament Bracket */
         #tournament-bracket::-webkit-scrollbar { height: 4px; }
         #tournament-bracket::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+
+        /* Botão de Destaque RINHA */
+        .nav-main-btn {
+            position: relative;
+            transform: translateY(-18px);
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #ea580c 100%);
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 4px solid #0f172a;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.3);
+            color: #000 !important;
+            z-index: 110;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .nav-main-btn:active { transform: translateY(-14px) scale(0.9); }
+        .nav-main-btn i { font-size: 1.4rem; margin-bottom: -2px; }
+        .nav-main-btn span { font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; }
+
+        .nav-item-active { color: #fbbf24 !important; }
+        
+        /* Grid do Menu Mais */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+        .menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 1.5rem;
+            transition: all 0.2s;
+        }
+        .menu-item:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
+        .menu-item i { font-size: 1.5rem; color: #94a3b8; }
+        .menu-item span { font-size: 10px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; }
+        
+        /* Cabeçalho Avançado */
+        .upper-ui-container {
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0) 100%);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 150;
+        }
+        .branding-title {
+            font-size: 1.75rem;
+            line-height: 1;
+            letter-spacing: -0.05em;
+            text-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+        }
+        .action-bar-glass {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            padding: 0.25rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        #bottom-nav {
+            height: 64px;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
     </style>
 </head>
 <body class="bg-slate-950 min-h-screen text-slate-100 selection:bg-yellow-500 selection:text-black flex flex-col">
@@ -178,70 +290,77 @@
     </div>
 
     <!-- BOTTOM NAVIGATION -->
-    <nav id="bottom-nav" class="hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-xl border-t border-slate-800 flex justify-around items-center p-2 z-[60] pb-6">
-        <button onclick="window.app.showScreen('selection')" id="nav-selection" class="flex flex-col items-center gap-1 text-yellow-500">
-            <i class="fas fa-swords text-xl"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Rinha</span>
+    <nav id="bottom-nav" class="hidden fixed bottom-0 left-0 w-full bg-slate-950 border-t border-slate-800/50 flex justify-around items-center px-2 z-[100]">
+        <button onclick="window.app.showScreen('shop')" id="nav-shop" class="flex flex-col items-center gap-1 text-slate-500 transition-all">
+            <i class="fas fa-store text-lg"></i>
+            <span class="text-[8px] font-black uppercase">Loja</span>
         </button>
-        <button onclick="window.app.showScreen('shop')" id="nav-shop" class="flex flex-col items-center gap-1 text-slate-500">
-            <i class="fas fa-store text-xl"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Loja</span>
+        <button onclick="window.app.showScreen('inventory')" id="nav-inventory" class="flex flex-col items-center gap-1 text-slate-500 transition-all">
+            <i class="fas fa-box-open text-lg"></i>
+            <span class="text-[8px] font-black uppercase">Mochila</span>
         </button>
-        <button onclick="window.app.showScreen('inventory')" id="nav-inventory" class="flex flex-col items-center gap-1 text-slate-500">
-            <i class="fas fa-box-open text-xl"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Mochila</span>
+        
+        <!-- Botão de Destaque -->
+        <button onclick="window.app.showScreen('selection')" id="nav-selection" class="nav-main-btn">
+            <i class="fas fa-swords"></i>
+            <span>Rinha</span>
         </button>
-        <button onclick="window.app.showScreen('missions')" id="nav-missions" class="flex flex-col items-center gap-1 text-slate-500">
-            <i class="fas fa-tasks text-xl"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Missões</span>
+
+        <button onclick="window.app.showScreen('breeding')" id="nav-breeding" class="flex flex-col items-center gap-1 text-slate-500 transition-all">
+            <i class="fas fa-dna text-lg"></i>
+            <span class="text-[8px] font-black uppercase" data-i18n="nav-lab">Laboratório</span>
         </button>
-        <button onclick="window.app.showScreen('tournament')" id="nav-tournament" class="flex flex-col items-center gap-1 text-slate-500">
-            <i class="fas fa-sitemap text-xl"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Torneio</span>
-        </button>
-        <button onclick="window.app.showScreen('referral')" id="nav-referral" class="flex flex-col items-center gap-1 text-slate-500">
-            <i class="fas fa-users text-xl"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Rede</span>
-        </button>
-        <button onclick="window.app.showScreen('leaderboard')" id="nav-leaderboard" class="flex flex-col items-center gap-1 text-slate-500">
-            <i class="fas fa-trophy text-xl"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Ranking</span>
+        <button onclick="window.app.toggleMenu()" id="nav-more" class="flex flex-col items-center gap-1 text-slate-500 transition-all">
+            <i class="fas fa-bars-staggered text-lg"></i>
+            <span class="text-[8px] font-black uppercase">Mais</span>
         </button>
     </nav>
 
     <!-- GAME STATE: SELECTION SCREEN -->
-    <div id="screen-selection" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40 md:pb-6 transition-all duration-300">
-        <!-- Header -->
-        <header class="flex justify-between items-center mb-4 gap-1 md:gap-2">
-            <div class="flex-shrink-0">
-                <h1 class="text-lg md:text-3xl italic bg-gradient-to-r from-yellow-400 to-red-500 bg-clip-text text-transparent leading-none font-black tracking-tighter" data-i18n="sel-title">RINHA EVOLUTION</h1>
-                <p class="text-[8px] md:text-[10px] text-slate-500 font-bold tracking-widest uppercase" data-i18n="sel-subtitle">Mobile Edition</p>
-            </div>
-            
-            <div class="flex gap-1 md:gap-2 items-center overflow-x-auto no-scrollbar py-1">
-                <div id="mode-instructions" class="hidden absolute top-16 right-4 z-20 bg-slate-900 border border-blue-500/50 p-3 rounded-xl shadow-2xl max-w-[200px] animate-bounce-slow">
-                    <p class="text-[9px] text-blue-400 font-bold uppercase mb-1"><i class="fas fa-info-circle mr-1"></i> Modo 3v3:</p>
-                    <p class="text-[8px] text-slate-300 leading-tight">Compre 3 galos no <b>Mercado</b> e equipe-os na sua <b>Mochila</b> para lutar!</p>
+    <div id="screen-selection" class="hidden screen-container w-full max-w-5xl mx-auto transition-all duration-300">
+        <!-- Header Refatorado (Advanced UI) -->
+        <header class="flex flex-col gap-4 p-4 md:p-6">
+            <!-- Nível 1: Branding e Saldo -->
+            <div class="flex justify-between items-center w-full">
+                <div class="flex-shrink-0">
+                    <h1 class="branding-title italic bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600 bg-clip-text text-transparent font-black tracking-tighter uppercase" data-i18n="sel-title">RINHA EVOLUTION</h1>
+                    <p class="text-[9px] text-slate-500 font-black tracking-[0.3em] uppercase opacity-80" data-i18n="sel-subtitle">Mobile Edition</p>
                 </div>
-                <div class="flex bg-slate-900 border border-slate-700 rounded-full p-0.5 md:p-1">
-                    <button onclick="window.app.setMode('1v1')" id="mode-1v1" class="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase transition-all bg-yellow-500 text-black">1v1</button>
-                    <button onclick="window.app.setMode('3v3')" id="mode-3v3" class="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase transition-all text-slate-500">3v3</button>
-                </div>
-                <button onclick="window.app.toggleWalletModal()" class="bg-slate-900 border border-slate-700 rounded-full px-2 md:px-3 py-0.5 md:py-1 flex items-center gap-1 md:gap-2 hover:bg-slate-800 transition-colors whitespace-nowrap">
-                    <i class="fas fa-wallet text-slate-400 text-xs md:text-base"></i>
-                    <span id="header-balance" class="font-mono font-bold text-yellow-400 text-xs md:text-sm">1000 RC</span>
+                
+                <button onclick="window.app.toggleWalletModal()" class="flex items-center gap-2 bg-slate-900/80 border border-yellow-500/20 rounded-2xl px-4 py-2 hover:bg-slate-800 transition-all shadow-lg active:scale-95">
+                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <span id="header-balance" class="font-mono font-black text-yellow-400 text-sm md:text-base">1000 RC</span>
+                    <i class="fas fa-plus-circle text-slate-600 text-xs"></i>
                 </button>
-                <div class="flex gap-1">
-                    <button onclick="window.app.toggleSettingsModal()" class="bg-slate-800 w-7 h-7 md:w-8 md:h-8 rounded-full border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center">
-                        <i class="fas fa-cog text-xs md:text-base"></i>
+            </div>
+
+            <!-- Nível 2: Barra de Ações Flutuante -->
+            <div class="action-bar-glass flex items-center justify-between w-full gap-2 px-2 py-1.5">
+                <!-- Seletor de Modo -->
+                <div class="flex bg-black/40 rounded-full p-1 border border-white/5">
+                    <button onclick="window.app.setMode('1v1')" id="mode-1v1" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase transition-all bg-yellow-500 text-black shadow-inner">1v1</button>
+                    <button onclick="window.app.setMode('3v3')" id="mode-3v3" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase transition-all text-slate-500 hover:text-slate-300">3v3</button>
+                </div>
+
+                <!-- Botões de Controle -->
+                <div class="flex gap-2">
+                    <button onclick="window.app.toggleSettingsModal()" class="w-9 h-9 rounded-full bg-slate-800/50 border border-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-all active:scale-90 shadow-md">
+                        <i class="fas fa-cog"></i>
                     </button>
-                    <button onclick="window.app.toggleRankModal()" class="bg-slate-800 w-7 h-7 md:w-8 md:h-8 rounded-full border border-slate-700 text-yellow-500 hover:text-white flex items-center justify-center">
-                        <i class="fas fa-trophy text-xs md:text-base"></i>
+                    <button onclick="window.app.toggleRankModal()" class="w-9 h-9 rounded-full bg-slate-800/50 border border-white/10 text-yellow-500/80 hover:text-yellow-400 flex items-center justify-center transition-all active:scale-90 shadow-md">
+                        <i class="fas fa-trophy"></i>
                     </button>
-                    <button onclick="window.app.showChallengeModal()" class="bg-slate-800 w-7 h-7 md:w-8 md:h-8 rounded-full border border-slate-700 text-blue-400 hover:text-white flex items-center justify-center">
-                        <i class="fas fa-share-alt text-xs md:text-base"></i>
+                    <button onclick="window.app.showChallengeModal()" class="w-9 h-9 rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:text-blue-300 flex items-center justify-center transition-all active:scale-90 shadow-md">
+                        <i class="fas fa-share-alt"></i>
                     </button>
                 </div>
+            </div>
+
+            <div id="mode-instructions" class="hidden bg-blue-500/10 border border-blue-500/20 p-3 rounded-2xl animate-fade-in">
+                <p class="text-[10px] text-blue-400 font-bold uppercase mb-1 flex items-center gap-2">
+                    <i class="fas fa-info-circle"></i> Modo 3v3:
+                </p>
+                <p class="text-[9px] text-slate-400 leading-tight">Compre 3 galos no <b>Mercado</b> e equipe-os na sua <b>Mochila</b> para lutar!</p>
             </div>
         </header>
 
@@ -268,11 +387,11 @@
             <div class="lg:w-1/2 flex flex-col gap-4">
                 <div>
                     <h3 class="text-xs text-yellow-500 font-bold mb-2 uppercase tracking-wider flex items-center gap-2" data-i18n="sel-lineage">1. Linhagem</h3>
-                    <div class="grid grid-cols-4 gap-2">
-                        <button onclick="window.app.selectElement('fire')" id="btn-fire" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🔥</span><div class="text-[10px] text-slate-300 font-bold" data-i18n="el-fire">Fogo</div></button>
-                        <button onclick="window.app.selectElement('earth')" id="btn-earth" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🏔️</span><div class="text-[10px] text-slate-300 font-bold" data-i18n="el-earth">Terra</div></button>
-                        <button onclick="window.app.selectElement('water')" id="btn-water" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🌊</span><div class="text-[10px] text-slate-300 font-bold" data-i18n="el-water">Água</div></button>
-                        <button onclick="window.app.selectElement('air')" id="btn-air" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🌪️</span><div class="text-[10px] text-slate-300 font-bold" data-i18n="el-air">Ar</div></button>
+                    <div class="grid grid-cols-4 xs:grid-cols-4 gap-2">
+                        <button onclick="window.app.selectElement('fire')" id="btn-fire" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🔥</span><div class="text-[9px] text-slate-300 font-bold" data-i18n="el-fire">Fogo</div></button>
+                        <button onclick="window.app.selectElement('earth')" id="btn-earth" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🏔️</span><div class="text-[9px] text-slate-300 font-bold" data-i18n="el-earth">Terra</div></button>
+                        <button onclick="window.app.selectElement('water')" id="btn-water" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🌊</span><div class="text-[9px] text-slate-300 font-bold" data-i18n="el-water">Água</div></button>
+                        <button onclick="window.app.selectElement('air')" id="btn-air" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🌪️</span><div class="text-[9px] text-slate-300 font-bold" data-i18n="el-air">Ar</div></button>
                     </div>
                 </div>
                 
@@ -302,13 +421,16 @@
         </div>
 
         <!-- Botão Iniciar -->
-        <div class="fixed bottom-24 left-0 w-full p-4 bg-gradient-to-t from-slate-950/80 to-transparent lg:static lg:bg-none lg:p-0 lg:mt-6 z-50">
-            <button id="btn-start" onclick="window.app.checkBalanceAndStart()" class="w-full max-w-5xl mx-auto py-4 bg-slate-800 text-slate-500 font-black text-xl uppercase tracking-widest rounded-2xl shadow-2xl cursor-not-allowed transition-all border-b-4 border-slate-950 active:border-b-0 active:translate-y-1" disabled data-i18n="sel-start">SELECIONAR GALO</button>
+        <div class="fixed left-0 w-full p-4 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent lg:static lg:bg-none lg:p-0 lg:mt-6 z-[60]" style="bottom: calc(var(--nav-height) + var(--safe-area-bottom));">
+            <button id="btn-start" onclick="window.app.checkBalanceAndStart()" class="w-full max-w-sm mx-auto py-4 bg-slate-800 text-slate-500 font-black text-lg uppercase tracking-widest rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-not-allowed transition-all border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 flex items-center justify-center gap-3" disabled data-i18n="sel-start">
+                <i class="fas fa-swords"></i>
+                SELECIONAR GALO
+            </button>
         </div>
     </div>
 
     <!-- GAME STATE: SHOP SCREEN -->
-    <div id="screen-shop" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+    <div id="screen-shop" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6">
         <header class="mb-6">
             <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">MERCADO</h1>
             <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Adquira novos galos e suprimentos</p>
@@ -335,7 +457,7 @@
     </div>
 
     <!-- GAME STATE: INVENTORY SCREEN -->
-    <div id="screen-inventory" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+    <div id="screen-inventory" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6">
         <header class="mb-6">
             <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">MINHA MOCHILA</h1>
             <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gerencie seu time de combate</p>
@@ -347,7 +469,7 @@
     </div>
 
     <!-- GAME STATE: REFERRAL SCREEN -->
-    <div id="screen-referral" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+    <div id="screen-referral" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6">
         <header class="mb-6">
             <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">MINHA REDE</h1>
             <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Indique e ganhe em 5 níveis</p>
@@ -379,19 +501,19 @@
     </div>
 
     <!-- GAME STATE: LEADERBOARD SCREEN -->
-    <div id="screen-leaderboard" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+    <div id="screen-leaderboard" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6">
         <header class="mb-6">
             <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">RANKING GLOBAL</h1>
             <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Os melhores treinadores da rinha</p>
         </header>
 
         <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-            <div class="bg-slate-800 p-4 grid grid-cols-12 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-700">
-                <div class="col-span-2 text-center">Pos</div>
-                <div class="col-span-6">Treinador</div>
-                <div class="col-span-4 text-right">Saldo</div>
+            <div class="bg-slate-800/50 p-4 flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-700">
+                <div class="w-12 text-center">Pos</div>
+                <div class="flex-1 px-4">Treinador</div>
+                <div class="w-24 text-right">Saldo</div>
             </div>
-            <div id="leaderboard-list" class="divide-y divide-slate-800">
+            <div id="leaderboard-list" class="divide-y divide-slate-800/50">
                 <!-- Rankings gerados via JS -->
                 <div class="p-10 text-center text-slate-500 animate-pulse">Carregando ranking...</div>
             </div>
@@ -399,7 +521,7 @@
     </div>
 
     <!-- GAME STATE: MISSIONS SCREEN -->
-    <div id="screen-missions" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+    <div id="screen-missions" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6">
         <header class="mb-6">
             <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">MISSÕES DIÁRIAS</h1>
             <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Complete tarefas para ganhar recompensas extras</p>
@@ -411,7 +533,7 @@
      </div>
 
      <!-- GAME STATE: TOURNAMENT SCREEN -->
-     <div id="screen-tournament" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+     <div id="screen-tournament" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6">
          <header class="mb-6 flex justify-between items-end">
              <div>
                 <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">GRANDE TORNEIO</h1>
@@ -428,6 +550,45 @@
              </div>
          </div>
      </div>
+
+    <!-- GAME STATE: LOGS SCREEN -->
+    <div id="screen-logs" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter" data-i18n="logs-title">HISTÓRICO DE BATALHAS</h1>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest" data-i18n="logs-subtitle">Revise seus combates e estratégias</p>
+        </header>
+
+        <div id="logs-list" class="space-y-4">
+            <!-- Logs gerados via JS -->
+            <div class="p-10 text-center text-slate-500 animate-pulse">Carregando histórico...</div>
+        </div>
+    </div>
+
+    <!-- GAME STATE: BREEDING SCREEN -->
+    <div id="screen-breeding" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter" data-i18n="lab-title">LABORATÓRIO DE FUSÃO</h1>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest" data-i18n="lab-subtitle">Combine DNA para criar galos lendários</p>
+        </header>
+
+        <div class="flex flex-col md:row gap-6 items-center justify-center mb-8">
+            <div id="breed-parent-1" onclick="window.app.selectBreedingParent(1)" class="w-40 h-40 bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-all">
+                <i class="fas fa-plus text-slate-700 text-2xl"></i>
+                <div class="text-[8px] text-slate-600 font-black uppercase mt-2">Pai 1</div>
+            </div>
+            <i class="fas fa-bolt text-yellow-500 text-3xl animate-pulse"></i>
+            <div id="breed-parent-2" onclick="window.app.selectBreedingParent(2)" class="w-40 h-40 bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-all">
+                <i class="fas fa-plus text-slate-700 text-2xl"></i>
+                <div class="text-[8px] text-slate-600 font-black uppercase mt-2">Pai 2</div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center max-w-md mx-auto">
+            <div class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4">Custo da Fusão</div>
+            <div id="breeding-cost" class="text-3xl font-mono font-bold text-yellow-500 mb-6">0 RC</div>
+            <button id="btn-breed-action" onclick="window.app.executeBreeding()" disabled class="w-full py-4 bg-slate-800 text-slate-500 font-black text-xl uppercase tracking-widest rounded-2xl shadow-lg cursor-not-allowed transition-all border-b-4 border-slate-950">FUSIONAR DNA</button>
+        </div>
+    </div>
 
     <!-- GAME STATE: BATTLE ARENA -->
     <div id="screen-battle" class="hidden relative h-[100dvh] w-full overflow-hidden flex flex-col bg-black">
@@ -492,7 +653,10 @@
             <div id="skill-panel" class="hidden absolute bottom-24 left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-4 animate-slide-up">
                 <div class="bg-slate-900/90 backdrop-blur-xl border border-yellow-500/30 rounded-3xl p-4 shadow-2xl">
                     <div class="flex justify-between items-center mb-3">
-                        <span class="text-[10px] font-black uppercase tracking-widest text-yellow-500">Ações de Combate</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-yellow-500">Ações de Combate</span>
+                            <div id="turn-timer" class="hidden bg-red-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full animate-pulse">15s</div>
+                        </div>
                         <div class="flex gap-2">
                             <button onclick="window.app.toggleItemMenu()" class="px-3 py-1 bg-slate-800 text-white text-[8px] font-black uppercase rounded-lg border border-slate-700 hover:bg-slate-700 transition-colors">
                                 <i class="fas fa-flask mr-1"></i> Itens
@@ -640,6 +804,41 @@
             <button onclick="window.app.clearData()" class="w-full py-3 bg-red-900/50 border border-red-700 text-red-400 font-bold rounded-xl mb-3 hover:bg-red-900 transition-colors"><i class="fas fa-trash mr-2"></i><span data-i18n="mod-settings-reset">Resetar Conta</span></button>
             <button onclick="window.app.logout()" class="w-full py-3 bg-slate-700 text-white font-bold rounded-xl mb-3"><i class="fas fa-sign-out-alt mr-2"></i>Logout</button>
             <button onclick="window.app.toggleSettingsModal()" class="w-full py-3 bg-slate-800 text-white font-bold rounded-xl" data-i18n="mod-settings-close">Fechar</button>
+        </div>
+    </div>
+
+    <!-- MENU MORE MODAL -->
+    <div id="menu-modal" class="fixed inset-0 z-[70] modal-base modal-hidden bg-black/95 backdrop-blur-xl flex items-end justify-center p-4">
+        <div class="bg-slate-900 w-full max-w-sm rounded-t-[3rem] rounded-b-[1.5rem] border border-slate-800 p-2 shadow-2xl relative mb-20 animate-slide-up">
+            <div class="w-12 h-1.5 bg-slate-800 rounded-full mx-auto my-4"></div>
+            <h2 class="text-xs font-black text-slate-500 uppercase text-center mb-4 tracking-[0.2em]">Menu de Navegação</h2>
+            
+            <div class="menu-grid">
+                <button onclick="window.app.showScreen('missions')" class="menu-item">
+                    <i class="fas fa-tasks"></i>
+                    <span>Missões</span>
+                </button>
+                <button onclick="window.app.showScreen('tournament')" class="menu-item">
+                    <i class="fas fa-sitemap"></i>
+                    <span>Torneio</span>
+                </button>
+                <button onclick="window.app.showScreen('referral')" class="menu-item">
+                    <i class="fas fa-users"></i>
+                    <span>Rede</span>
+                </button>
+                <button onclick="window.app.showScreen('leaderboard')" class="menu-item">
+                    <i class="fas fa-trophy"></i>
+                    <span>Ranking</span>
+                </button>
+                <button onclick="window.app.showScreen('logs')" class="menu-item">
+                    <i class="fas fa-history"></i>
+                    <span>Logs</span>
+                </button>
+                <button onclick="window.app.toggleMenu()" class="menu-item border-red-900/30 bg-red-900/10">
+                    <i class="fas fa-times text-red-500"></i>
+                    <span class="text-red-400">Fechar</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -832,6 +1031,10 @@
                     window.app.setWalletNetwork('arbitrum');
                 }
             },
+            toggleMenu: () => {
+                AudioEngine.playClick();
+                toggleModal('menu-modal');
+            },
             toggleSettingsModal: () => { AudioEngine.playClick(); toggleModal('settings-modal'); },
             toggleRankModal: () => { AudioEngine.playClick(); toggleModal('rank-modal'); },
             toggleInfo: () => { AudioEngine.playClick(); document.getElementById('counter-info').classList.toggle('hidden'); },
@@ -857,27 +1060,88 @@
                 toggleModal('wallet-modal');
             },
             showScreen: (screenId) => {
-                const screens = ['selection', 'shop', 'inventory', 'missions', 'tournament', 'referral', 'leaderboard', 'battle'];
+                const screens = ['selection', 'shop', 'inventory', 'missions', 'tournament', 'referral', 'leaderboard', 'battle', 'logs', 'breeding'];
                 screens.forEach(id => {
                     const el = document.getElementById(`screen-${id}`);
                     if (el) el.classList.add('hidden');
                     
                     const nav = document.getElementById(`nav-${id}`);
-                    if (nav) nav.classList.replace('text-yellow-500', 'text-slate-500');
+                    if (nav) {
+                        if (id === 'selection') {
+                            // Botão especial não usa text-yellow-500 puro
+                        } else {
+                            nav.classList.remove('nav-item-active');
+                            nav.classList.add('text-slate-500');
+                        }
+                    }
                 });
                 
                 document.getElementById(`screen-${screenId}`).classList.remove('hidden');
                 const nav = document.getElementById(`nav-${screenId}`);
-                if (nav) nav.classList.replace('text-slate-500', 'text-yellow-500');
+                if (nav) {
+                    if (screenId !== 'selection') {
+                        nav.classList.add('nav-item-active');
+                        nav.classList.remove('text-slate-500');
+                    }
+                }
+
+                // Se a tela estiver no menu "Mais", destaca o botão "Mais"
+                const moreScreens = ['missions', 'tournament', 'referral', 'leaderboard', 'logs'];
+                const moreBtn = document.getElementById('nav-more');
+                if (moreScreens.includes(screenId)) {
+                    moreBtn.classList.add('nav-item-active');
+                    moreBtn.classList.remove('text-slate-500');
+                } else {
+                    moreBtn.classList.remove('nav-item-active');
+                    moreBtn.classList.add('text-slate-500');
+                }
                 
+                // Fecha o menu se estiver aberto
+                const menuModal = document.getElementById('menu-modal');
+                if (menuModal && !menuModal.classList.contains('modal-hidden')) {
+                    toggleModal('menu-modal');
+                }
+
                 if (screenId === 'shop') updateShopUI();
                 if (screenId === 'inventory') updateInventoryUI();
                 if (screenId === 'missions') updateMissionsUI();
                 if (screenId === 'tournament') updateTournamentUI();
                 if (screenId === 'referral') updateReferralUI();
                 if (screenId === 'leaderboard') updateLeaderboardUI();
+                if (screenId === 'logs') updateLogsUI();
+                if (screenId === 'breeding') updateBreedingUI();
                 
                 AudioEngine.playClick();
+            },
+            selectedBreedingParents: [null, null],
+            selectBreedingParent: (index) => {
+                const roosters = state.gameData.inventory.roosters;
+                if (roosters.length < 2) return alert("Você precisa de pelo menos 2 galos para fusionar!");
+                
+                const available = roosters.filter(r => !window.app.selectedBreedingParents.includes(r));
+                if (available.length === 0) return alert("Não há mais galos disponíveis para seleção!");
+                
+                const parent = available[Math.floor(Math.random() * available.length)];
+                window.app.selectedBreedingParents[index-1] = parent;
+                
+                renderAvatar(`breed-parent-${index}`, parent.element, parent.color, parent.dna?.skin || 'none');
+                updateBreedingUI();
+            },
+            executeBreeding: () => {
+                const [p1, p2] = window.app.selectedBreedingParents;
+                if (!p1 || !p2) return alert("Selecione dois galos primeiro!");
+                
+                const res = BreedingService.breed(p1, p2);
+                if (res.success) {
+                    const skinMsg = res.rooster.dna.skin !== 'none' ? `\n\n✨ BÔNUS: Você desbloqueou o visual ${i18n.t('skin-' + res.rooster.dna.skin)}! ✨` : "";
+                    alert(`FUSÃO COMPLETA! Você criou um novo galo de DNA ${res.rooster.dna.rarity}!${skinMsg}`);
+                    window.app.selectedBreedingParents = [null, null];
+                    document.getElementById('breed-parent-1').innerHTML = '<i class="fas fa-plus text-slate-700 text-2xl"></i><div class="text-[8px] text-slate-600 font-black uppercase mt-2">Pai 1</div>';
+                    document.getElementById('breed-parent-2').innerHTML = '<i class="fas fa-plus text-slate-700 text-2xl"></i><div class="text-[8px] text-slate-600 font-black uppercase mt-2">Pai 2</div>';
+                    window.app.showScreen('inventory');
+                } else {
+                    alert("Falha na fusão: Saldo insuficiente!");
+                }
             },
             buyRooster: async (el, col, price) => {
                 const res = await MarketplaceService.buyRooster(el, col, price);
@@ -1060,7 +1324,7 @@
 
         function updatePreview() {
             if (state.player.element) {
-                renderAvatar('selection-preview-avatar', state.player.element, state.player.color);
+                renderAvatar('selection-preview-avatar', state.player.element, state.player.color, state.player.dna?.skin || 'none');
                 const elData = ELEMENTS[state.player.element];
                 document.getElementById('preview-name').innerText = i18n.t(`el-${elData.id}`);
                 document.getElementById('preview-stat-base').innerText = `FORÇA: ${elData.base}`;
@@ -1090,12 +1354,12 @@
             combatList.innerHTML = '';
             MarketplaceService.getCombatItems().forEach(item => {
                 const div = document.createElement('div');
-                div.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center gap-2 shadow-xl';
+                div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-yellow-500/50 transition-all';
                 div.innerHTML = `
-                    <div class="text-3xl mb-2">${item.icon}</div>
-                    <div class="text-[9px] font-black text-white uppercase text-center">${item.name}</div>
-                    <div class="text-sm font-mono font-bold text-yellow-400">${item.price} RC</div>
-                    <button onclick="window.app.buyItem('${item.id}', ${item.price})" class="w-full py-2 bg-slate-800 text-yellow-500 text-[10px] font-black uppercase rounded-lg border border-yellow-500/30 hover:bg-slate-700">Comprar</button>
+                    <div class="text-2xl mb-1">${item.icon}</div>
+                    <div class="text-[8px] xs:text-[9px] font-black text-white uppercase text-center leading-tight h-6 flex items-center">${item.name}</div>
+                    <div class="text-xs font-mono font-bold text-yellow-400">${item.price} RC</div>
+                    <button onclick="window.app.buyItem('${item.id}', ${item.price})" class="w-full py-2 bg-slate-800 text-yellow-500 text-[9px] font-black uppercase rounded-lg border border-yellow-500/30 active:scale-95 transition-all">Comprar</button>
                 `;
                 combatList.appendChild(div);
             });
@@ -1104,46 +1368,46 @@
             shopList.innerHTML = '';
             MarketplaceService.getShopItems().forEach(item => {
                 const div = document.createElement('div');
-                div.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center gap-2 shadow-xl';
+                div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-yellow-500/50 transition-all';
                 div.innerHTML = `
-                    <div class="w-20 h-20" id="shop-item-${item.id}"></div>
-                    <div class="text-xs font-black text-white uppercase">${i18n.t(`el-${item.element}`)}</div>
-                    <div class="text-lg font-mono font-bold text-yellow-400">${item.price} RC</div>
-                    <button onclick="window.app.buyRooster('${item.element}', '${item.color}', ${item.price})" class="w-full py-2 bg-yellow-500 text-black text-[10px] font-black uppercase rounded-lg">Comprar</button>
+                    <div class="w-16 h-16 xs:w-20 xs:h-20" id="shop-item-${item.id}"></div>
+                    <div class="text-[10px] font-black text-white uppercase">${i18n.t(`el-${item.element}`)}</div>
+                    <div class="text-base font-mono font-bold text-yellow-400">${item.price} RC</div>
+                    <button onclick="window.app.buyRooster('${item.element}', '${item.color}', ${item.price})" class="w-full py-2 bg-yellow-500 text-black text-[9px] font-black uppercase rounded-lg active:scale-95 transition-all">Comprar</button>
                 `;
                 shopList.appendChild(div);
                 renderAvatar(`shop-item-${item.id}`, item.element, item.color);
             });
 
             const auctionList = document.getElementById('auction-list');
-            auctionList.innerHTML = '<div class="p-10 text-center text-slate-500 animate-pulse">Buscando leilões reais...</div>';
+            auctionList.innerHTML = '<div class="p-10 text-center text-slate-500 animate-pulse uppercase font-black text-[10px] tracking-widest">Buscando leilões reais...</div>';
             
             const items = await AuctionEngine.getAuctionItems();
             auctionList.innerHTML = '';
             
             if (items.length === 0) {
-                auctionList.innerHTML = '<div class="p-10 text-center text-slate-600 font-bold uppercase tracking-widest border-2 border-dashed border-slate-800 rounded-2xl">Nenhum leilão ativo no momento.</div>';
+                auctionList.innerHTML = '<div class="p-10 text-center text-slate-600 font-black uppercase tracking-widest border-2 border-dashed border-slate-800 rounded-2xl text-[10px]">Nenhum leilão ativo no momento.</div>';
                 return;
             }
 
             items.forEach(item => {
                 const div = document.createElement('div');
-                div.className = 'bg-slate-900 border border-yellow-500/30 rounded-2xl p-4 flex items-center gap-4 shadow-xl';
+                div.className = 'bg-slate-900/50 backdrop-blur-md border border-yellow-500/20 rounded-2xl p-3 flex items-center gap-3 shadow-xl';
                 div.innerHTML = `
-                    <div class="w-16 h-16" id="auc-item-${item.id}"></div>
-                    <div class="flex-1">
-                        <div class="text-xs font-black text-white uppercase">Galo Nível ${item.rooster.level}</div>
-                        <div class="text-[10px] text-slate-500">DNA: ${item.rooster.dna}</div>
-                        <div class="text-sm font-mono font-bold text-yellow-400 mt-1">${item.currentPrice} RC</div>
+                    <div class="w-14 h-14 flex-shrink-0" id="auc-item-${item.id}"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[10px] font-black text-white uppercase truncate">Nível ${item.rooster.level}</div>
+                        <div class="text-[8px] text-slate-500 truncate">${item.rooster.dna?.code || item.rooster.dna}</div>
+                        <div class="text-xs font-mono font-bold text-yellow-400 mt-0.5">${item.currentPrice} RC</div>
                     </div>
-                    <div class="text-right">
-                        <div class="text-[8px] text-green-500 font-bold uppercase mb-1">Status</div>
-                        <div class="text-xs font-mono text-white">${item.timeLeft}</div>
-                        <button onclick="window.app.bid('${item.id}', ${item.currentPrice})" class="mt-2 px-4 py-1 bg-slate-800 text-yellow-500 text-[10px] font-black uppercase rounded-lg border border-yellow-500/50">Comprar</button>
+                    <div class="flex flex-col items-end gap-1">
+                        <div class="text-[7px] text-green-500 font-black uppercase">Status</div>
+                        <div class="text-[9px] font-mono text-white bg-black/40 px-1.5 py-0.5 rounded">${item.timeLeft}</div>
+                        <button onclick="window.app.bid('${item.id}', ${item.currentPrice})" class="px-3 py-1 bg-slate-800 text-yellow-500 text-[8px] font-black uppercase rounded-lg border border-yellow-500/50 active:scale-95">Comprar</button>
                     </div>
                 `;
                 auctionList.appendChild(div);
-                renderAvatar(`auc-item-${item.id}`, item.rooster.element, item.rooster.color);
+                renderAvatar(`auc-item-${item.id}`, item.rooster.element, item.rooster.color, item.rooster.dna?.skin || 'none');
             });
         }
 
@@ -1151,30 +1415,37 @@
             const invList = document.getElementById('inventory-list');
             invList.innerHTML = '';
             if (state.gameData.inventory.roosters.length === 0) {
-                invList.innerHTML = '<div class="col-span-full text-center py-10 text-slate-500 font-bold uppercase tracking-widest">Sua mochila está vazia.<br>Visite a loja!</div>';
+                invList.innerHTML = '<div class="col-span-full text-center py-10 text-slate-600 font-black uppercase tracking-widest text-xs">Sua mochila está vazia.<br>Visite a loja!</div>';
                 return;
             }
             state.gameData.inventory.roosters.forEach(gal => {
                 const inTeam = state.gameData.teams.active.includes(gal.id);
+                const hasSkin = gal.dna?.skin && gal.dna.skin !== 'none';
                 const div = document.createElement('div');
-                div.className = `bg-slate-900 border ${inTeam ? 'border-yellow-500/50 shadow-yellow-500/10' : 'border-slate-800'} rounded-2xl p-4 flex items-center gap-4 shadow-xl transition-all`;
+                div.className = `bg-slate-900/50 backdrop-blur-md border ${inTeam ? 'border-yellow-500/50 shadow-yellow-500/10' : 'border-slate-800'} rounded-2xl p-3 flex items-center gap-3 shadow-xl transition-all`;
                 div.innerHTML = `
-                    <div class="w-16 h-16" id="inv-item-${gal.id}"></div>
-                    <div class="flex-1">
-                        <div class="text-xs font-black text-white uppercase">${i18n.t(`el-${gal.element}`)}</div>
-                        <div class="text-[10px] text-slate-500">Nível ${gal.level} | XP ${gal.xp}</div>
+                    <div class="relative flex-shrink-0">
+                        <div class="w-14 h-14 xs:w-16 xs:h-16" id="inv-item-${gal.id}"></div>
+                        ${hasSkin ? `<div class="absolute -top-1 -left-1 bg-yellow-500 text-black text-[6px] font-black px-1.5 py-0.5 rounded-full shadow-lg border border-black animate-pulse z-10">${i18n.t('skin-' + gal.dna.skin)}</div>` : ''}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <div class="text-[10px] font-black text-white uppercase truncate">${i18n.t(`el-${gal.element}`)}</div>
+                            ${gal.dna?.rarity === 'legendary' ? '<span class="text-[6px] bg-orange-500/20 text-orange-400 px-1 rounded font-black">LEGENDARY</span>' : ''}
+                        </div>
+                        <div class="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">Nível ${gal.level} • XP ${gal.xp}</div>
                         <div class="flex gap-2 mt-2">
-                            <button onclick="window.app.toggleTeamMember('${gal.id}')" class="px-3 py-1 ${inTeam ? 'bg-red-900/50 text-red-400' : 'bg-yellow-500 text-black'} text-[8px] font-black uppercase rounded-lg transition-all">
-                                ${inTeam ? 'Remover do Time' : 'Adicionar ao Time'}
+                            <button onclick="window.app.toggleTeamMember('${gal.id}')" class="px-2.5 py-1 ${inTeam ? 'bg-red-900/40 text-red-400 border-red-500/30' : 'bg-yellow-500 text-black'} text-[8px] font-black uppercase rounded-lg transition-all border border-transparent active:scale-95">
+                                ${inTeam ? 'Remover' : 'Equipar'}
                             </button>
-                            <button onclick="window.app.sellRooster('${gal.id}')" class="px-3 py-1 bg-slate-800 text-slate-400 text-[8px] font-black uppercase rounded-lg border border-slate-700">
+                            <button onclick="window.app.sellRooster('${gal.id}')" class="px-2.5 py-1 bg-slate-800 text-slate-400 text-[8px] font-black uppercase rounded-lg border border-slate-700 active:scale-95">
                                 Vender
                             </button>
                         </div>
                     </div>
                 `;
                 invList.appendChild(div);
-                renderAvatar(`inv-item-${gal.id}`, gal.element, gal.color);
+                renderAvatar(`inv-item-${gal.id}`, gal.element, gal.color, gal.dna?.skin || 'none');
             });
         }
 
@@ -1292,6 +1563,65 @@
             bracket.appendChild(container);
         }
 
+        function updateLogsUI() {
+            const list = document.getElementById('logs-list');
+            const logs = MatchLogService.getLogs();
+            
+            if (logs.length === 0) {
+                list.innerHTML = `<div class="p-10 text-center text-slate-600 uppercase font-black tracking-widest opacity-50">Nenhum log disponível</div>`;
+                return;
+            }
+
+            list.innerHTML = logs.map(log => `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="text-[8px] text-slate-500 font-black uppercase mb-1">${new Date(log.date).toLocaleString()}</div>
+                            <div class="text-xs font-bold text-white uppercase">${log.mode === '3v3' ? 'Batalha de Equipes' : 'Duelo 1v1'}</div>
+                        </div>
+                        <div class="px-2 py-1 rounded text-[8px] font-black uppercase ${log.result === 'win' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${log.result}</div>
+                    </div>
+                    <div class="flex items-center justify-between bg-black/30 p-2 rounded-xl border border-white/5">
+                        <div class="flex -space-x-2">
+                            ${log.playerRoosters.map(r => `<div class="w-8 h-8 rounded-full border border-slate-700 bg-slate-800 flex items-center justify-center text-[10px]">${ELEMENTS[r.element].icon}</div>`).join('')}
+                        </div>
+                        <div class="text-[10px] font-black text-slate-600">VS</div>
+                        <div class="flex -space-x-2 flex-row-reverse">
+                            ${log.opponentRoosters.map(r => `<div class="w-8 h-8 rounded-full border border-slate-700 bg-slate-800 flex items-center justify-center text-[10px]">${ELEMENTS[r.element].icon}</div>`).join('')}
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center text-[10px] font-mono">
+                        <span class="text-slate-500">Aposta: ${log.bet} RC</span>
+                        <span class="${log.financial >= 0 ? 'text-green-400' : 'text-red-400'}">${log.financial >= 0 ? '+' : ''}${log.financial} RC</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateBreedingUI() {
+            const [p1, p2] = window.app.selectedBreedingParents;
+            const btn = document.getElementById('btn-breed-action');
+            const costEl = document.getElementById('breeding-cost');
+            
+            if (p1 && p2) {
+                const cost = BreedingService.getBreedingCost(p1, p2);
+                costEl.innerText = `${cost} RC`;
+                btn.disabled = state.gameData.balance < cost;
+                if (btn.disabled) {
+                    btn.classList.add('bg-slate-800', 'text-slate-500');
+                    btn.classList.remove('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'animate-pulse');
+                } else {
+                    btn.classList.remove('bg-slate-800', 'text-slate-500');
+                    btn.classList.add('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'animate-pulse');
+                }
+            } else {
+                costEl.innerText = `0 RC`;
+                btn.disabled = true;
+                btn.classList.add('bg-slate-800', 'text-slate-500');
+                btn.classList.remove('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'animate-pulse');
+            }
+        }
+
         // Boot
         async function boot() {
             console.log("RINHA EVOLUTION: Booting...");
@@ -1299,18 +1629,31 @@
             // Define o idioma inicial antes de qualquer coisa
             const currentLang = state.gameData.settings.lang || 'pt-BR';
             window.app.setLang(currentLang);
+
+            // Escuta mudanças de autenticação do Supabase (OAuth Redirect)
+            const { supabase } = await import('./js/supabase.js');
+            supabase.auth.onAuthStateChange(async (event, session) => {
+                if (event === 'SIGNED_IN' && session) {
+                    console.log("OAuth Login Success:", session.user.email);
+                    state.gameData.user = { 
+                        id: session.user.id, 
+                        name: session.user.user_metadata?.full_name || session.user.email.split('@')[0], 
+                        email: session.user.email 
+                    };
+                    await state.syncAll();
+                    state.save();
+                    initGameUI();
+                }
+            });
             
-            // Verifica a sessão
+            // Verifica a sessão atual
             const isLogged = await Auth.checkSession();
             
             if (isLogged) {
-                // Se logado, inicializa a UI do jogo e as missões
                 MissionService.updateProgress('init', 0); 
                 initGameUI();
-                // Verifica se há um convite de desafio na URL
                 checkUrlChallenge();
             } else {
-                // Se não logado, garante que a tela de login esteja visível
                 Auth.showLogin();
             }
             
@@ -1331,7 +1674,7 @@
                 const challengerData = parseChallenge(challenge);
                 if (challengerData) {
                     // Pre-render challenger avatar
-                    renderAvatar('challenge-avatar', challengerData.e, challengerData.c);
+                    renderAvatar('challenge-avatar', challengerData.e, challengerData.c, challengerData.s || 'none');
                     document.getElementById('challenger-name').innerText = challengerData.n;
                     document.getElementById('challenge-el-name').innerText = i18n.t(`el-${challengerData.e}`);
                     document.getElementById('challenge-stats').innerText = `FORÇA: ${challengerData.b}`;

@@ -76,6 +76,7 @@ export class Auth {
     }
 
     static async register(email, password, username, lang) {
+        console.log(`Iniciando registro para: ${email}...`);
         try {
             const { data, error } = await supabase.auth.signUp({
                 email,
@@ -88,9 +89,12 @@ export class Auth {
                 }
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error("Erro retornado pelo Supabase Auth no Registro:", error.status, error.message);
+                throw error;
+            }
 
-            // O profile é criado automaticamente via trigger SQL no Supabase
+            console.log("Usuário criado com sucesso no Supabase. ID:", data.user.id);
             state.gameData.user = { 
                 id: data.user.id, 
                 name: username, 
@@ -99,7 +103,8 @@ export class Auth {
             state.gameData.settings.lang = lang;
             
             // Aguarda um pequeno delay para a trigger do Supabase criar o profile
-            await new Promise(r => setTimeout(r, 1000));
+            console.log("Aguardando criação do profile via trigger...");
+            await new Promise(r => setTimeout(r, 1500));
             await state.syncAll();
 
             i18n.setLanguage(lang);
@@ -107,20 +112,25 @@ export class Auth {
             this.showMainGame();
             return { success: true };
         } catch (err) {
-            console.error("Registration error:", err);
+            console.error("Erro capturado na função Auth.register:", err);
             return { success: false, error: err.message };
         }
     }
 
     static async login(email, password) {
+        console.log(`Tentando login para: ${email}...`);
         try {
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error("Erro retornado pelo Supabase Auth:", error.status, error.message);
+                throw error;
+            }
 
+            console.log("Login realizado com sucesso no Supabase. ID:", data.user.id);
             state.gameData.user = { 
                 id: data.user.id, 
                 name: data.user.user_metadata?.full_name || data.user.email.split('@')[0], 
@@ -135,7 +145,7 @@ export class Auth {
             this.showMainGame();
             return { success: true };
         } catch (err) {
-            console.error("Login error:", err);
+            console.error("Erro capturado na função Auth.login:", err);
             return { success: false, error: err.message };
         }
     }

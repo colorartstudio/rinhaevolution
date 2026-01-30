@@ -1,6 +1,6 @@
-import { ELEMENTS, COLORS } from './state.js';
+import { ELEMENTS, COLORS, SKINS } from './state.js';
 
-export function renderAvatar(containerId, type, colorKey) {
+export function renderAvatar(containerId, type, colorKey, skinKey = 'none') {
     let container = document.getElementById(containerId + '-avatar');
     if (!container) container = document.getElementById(containerId);
     if (!container) return;
@@ -16,6 +16,9 @@ export function renderAvatar(containerId, type, colorKey) {
     
     const elData = ELEMENTS[type];
     if (!elData) return;
+
+    const skin = SKINS[skinKey] || SKINS.none;
+    const filterStyle = skin.filter ? `style="filter: ${skin.filter}"` : "";
 
     const tailFill1 = elData.tailColor1; 
     const tailFill2 = elData.tailColor2;
@@ -36,7 +39,7 @@ export function renderAvatar(containerId, type, colorKey) {
     }
 
     const svg = `
-    <svg width="100%" height="100%" viewBox="0 0 300 300">
+    <svg width="100%" height="100%" viewBox="0 0 300 300" ${filterStyle}>
         <defs>
             <linearGradient id="gradBody-${containerId}" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" style="stop-color:${bodyColor};stop-opacity:1" />

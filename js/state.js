@@ -14,6 +14,15 @@ export const COLORS = {
     yellow: { id: 'yellow', hex: '#ca8a04', dark: '#713f12', name: 'Solar' }
 };
 
+export const SKINS = {
+    none: { id: 'none', filter: '' },
+    neon: { id: 'neon', filter: 'drop-shadow(0 0 8px #00f2ff) brightness(1.2) saturate(1.5)' },
+    gold: { id: 'gold', filter: 'drop-shadow(0 0 12px gold) sepia(0.3) saturate(1.8) contrast(1.1)' },
+    ghost: { id: 'ghost', filter: 'opacity(0.6) hue-rotate(180deg) brightness(1.4)' },
+    ruby: { id: 'ruby', filter: 'drop-shadow(0 0 8px #ff0000) hue-rotate(-10deg) brightness(1.1) saturate(1.3)' },
+    shadow: { id: 'shadow', filter: 'grayscale(1) brightness(0.4) drop-shadow(0 0 5px #000)' }
+};
+
 export const ARENAS = [
     { id: 'earth', name: 'Caverna', class: 'arena-earth', bonusElement: 'earth', icon: '🏔️' },
     { id: 'water', name: 'Lagoa', class: 'arena-water', bonusElement: 'water', icon: '🌊' },
@@ -77,6 +86,14 @@ class State {
             if (!this.gameData.teams) this.gameData.teams = { active: [] };
             if (!this.gameData.referral) this.gameData.referral = { code: '', referrer: null, totalEarnings: 0, networkCount: [0,0,0,0,0] };
             if (!this.gameData.economy) this.gameData.economy = { totalRake: 0, jackpotPool: 0 };
+
+            // Migration: Ensure all roosters have energy fields
+            if (this.gameData.inventory.roosters) {
+                this.gameData.inventory.roosters.forEach(r => {
+                    if (r.energy === undefined) r.energy = 100;
+                    if (r.energy_max === undefined) r.energy_max = 100;
+                });
+            }
         }
     }
 
@@ -102,54 +119,72 @@ class State {
     async syncAll() {
         if (!this.gameData.user || !this.gameData.user.id) return;
         
+        console.log("Iniciando sincronização total com Supabase...");
         try {
             const { supabase } = await import('./supabase.js');
             
             // 1. Buscar Profile
-            const { data: profile, error: pError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', this.gameData.user.id)
-                .single();
-            
-            if (profile) {
-                this.gameData.balance = profile.balance;
-                this.gameData.wins = profile.wins;
-                this.gameData.losses = profile.losses;
-                this.gameData.settings = profile.settings;
-                if (profile.referral_code) this.gameData.referral.code = profile.referral_code;
+            try {
+                const { data: profile, error: pError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', this.gameData.user.id)
+                    .single();
+                
+                if (pError) throw pError;
+                if (profile) {
+                    this.gameData.balance = profile.balance;
+                    this.gameData.wins = profile.wins;
+                    this.gameData.losses = profile.losses;
+                    this.gameData.settings = profile.settings || this.gameData.settings;
+                    if (profile.referral_code) this.gameData.referral.code = profile.referral_code;
+                    console.log("Profile sincronizado.");
+                }
+            } catch (e) {
+                console.warn("Erro ao sincronizar profile (tabela pode não existir):", e.message);
             }
 
             // 2. Buscar Galos (Inventory)
-            const { data: roosters, error: rError } = await supabase
-                .from('roosters')
-                .select('*')
-                .eq('owner_id', this.gameData.user.id);
-            
-            if (roosters) {
-                this.gameData.inventory.roosters = roosters;
-                // Sincronizar time ativo baseado na coluna in_team
-                this.gameData.teams.active = roosters
-                    .filter(r => r.in_team)
-                    .map(r => r.id);
+            try {
+                const { data: roosters, error: rError } = await supabase
+                    .from('roosters')
+                    .select('*')
+                    .eq('owner_id', this.gameData.user.id);
+                
+                if (rError) throw rError;
+                if (roosters) {
+                    this.gameData.inventory.roosters = roosters;
+                    this.gameData.teams.active = roosters
+                        .filter(r => r.in_team)
+                        .map(r => r.id);
+                    console.log(`${roosters.length} galos sincronizados.`);
+                }
+            } catch (e) {
+                console.warn("Erro ao sincronizar galos:", e.message);
             }
 
             // 3. Buscar Estatísticas Globais de Economia
-            const { data: economy, error: eError } = await supabase
-                .from('economy_stats')
-                .select('*')
-                .eq('id', 1)
-                .single();
-            
-            if (economy) {
-                this.gameData.economy.totalRake = parseInt(economy.total_rake);
-                this.gameData.economy.jackpotPool = parseInt(economy.jackpot_pool);
+            try {
+                const { data: economy, error: eError } = await supabase
+                    .from('economy_stats')
+                    .select('*')
+                    .eq('id', 1)
+                    .single();
+                
+                if (eError) throw eError;
+                if (economy) {
+                    this.gameData.economy.totalRake = parseInt(economy.total_rake);
+                    this.gameData.economy.jackpotPool = parseInt(economy.jackpot_pool);
+                    console.log("Economia global sincronizada.");
+                }
+            } catch (e) {
+                console.warn("Erro ao sincronizar economia global:", e.message);
             }
 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(this.gameData));
             return true;
         } catch (err) {
-            console.error("Full sync failed:", err);
+            console.error("Falha crítica na sincronização:", err);
             return false;
         }
     }
@@ -162,7 +197,12 @@ class State {
             level,
             xp: 0,
             xpNext: level * 100,
-            dna: Math.random().toString(36).substring(2, 12).toUpperCase(),
+            dna: {
+                code: Math.random().toString(36).substring(2, 12).toUpperCase(),
+                skin: 'none',
+                generation: 1,
+                rarity: 'common'
+            },
             baseStats: ELEMENTS[element].base,
             hp: 100 + (level * 10),
             hp_max: 100 + (level * 10),

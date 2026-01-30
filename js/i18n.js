@@ -79,7 +79,23 @@ const translations = {
         'mod-share-challenge-received': 'DESAFIO RECEBIDO!',
         'mod-share-challenge-desc': 'Você foi desafiado por',
         'mod-share-accept': 'ACEITAR DESAFIO',
-        'mod-share-ignore': 'IGNORAR'
+        'mod-share-ignore': 'IGNORAR',
+        
+        // Logs & Lab
+        'nav-logs': 'Logs',
+        'nav-lab': 'Laboratório',
+        'logs-title': 'HISTÓRICO DE BATALHAS',
+        'logs-subtitle': 'Revise seus combates e estratégias',
+        'lab-title': 'LABORATÓRIO DE FUSÃO',
+        'lab-subtitle': 'Combine DNA para criar galos lendários',
+        
+        // Skins
+        'skin-none': 'Original',
+        'skin-neon': 'Neon',
+        'skin-gold': 'Dourado',
+        'skin-ghost': 'Espectral',
+        'skin-ruby': 'Rubi',
+        'skin-shadow': 'Sombrio'
     },
     'en': {
         'login-title': 'ENTER THE RINHA',
@@ -144,7 +160,23 @@ const translations = {
         'mod-share-challenge-received': 'CHALLENGE RECEIVED!',
         'mod-share-challenge-desc': 'You were challenged by',
         'mod-share-accept': 'ACCEPT CHALLENGE',
-        'mod-share-ignore': 'IGNORE'
+        'mod-share-ignore': 'IGNORE',
+
+        // Logs & Lab
+        'nav-logs': 'Logs',
+        'nav-lab': 'Laboratory',
+        'logs-title': 'BATTLE HISTORY',
+        'logs-subtitle': 'Review your combats and strategies',
+        'lab-title': 'FUSION LABORATORY',
+        'lab-subtitle': 'Combine DNA to create legendary roosters',
+
+        // Skins
+        'skin-none': 'Original',
+        'skin-neon': 'Neon',
+        'skin-gold': 'Golden',
+        'skin-ghost': 'Spectral',
+        'skin-ruby': 'Ruby',
+        'skin-shadow': 'Shadow'
     },
     'es': {
         'login-title': 'ENTRAR EN LA RINHA',
@@ -208,8 +240,24 @@ const translations = {
         'mod-share-copied': '¡Enlace Copiado!',
         'mod-share-challenge-received': '¡DESAFÍO RECIBIDO!',
         'mod-share-challenge-desc': 'Fuiste desafiado por',
-        'mod-share-accept': 'ACEITAR DESAFÍO',
-        'mod-share-ignore': 'IGNORAR'
+        'mod-share-accept': 'ACEPTAR DESAFÍO',
+        'mod-share-ignore': 'IGNORAR',
+
+        // Logs & Lab
+        'nav-logs': 'Logs',
+        'nav-lab': 'Laboratorio',
+        'logs-title': 'HISTORIAL DE BATALLAS',
+        'logs-subtitle': 'Revisa tus combates y estrategias',
+        'lab-title': 'LABORATORIO DE FUSIÓN',
+        'lab-subtitle': 'Combina ADN para crear gallos legendarios',
+
+        // Skins
+        'skin-none': 'Original',
+        'skin-neon': 'Neón',
+        'skin-gold': 'Dorado',
+        'skin-ghost': 'Espectral',
+        'skin-ruby': 'Rubí',
+        'skin-shadow': 'Sombrío'
     }
 };
 

@@ -15,6 +15,7 @@ import { EconomyService } from './economy.js';
 import { TeamService } from './team.js';
 import { MissionService, MISSION_TYPES } from './missions.js';
 import { TournamentService } from './tournament.js';
+import { MatchLogService } from './matchLog.js';
 
 import { SkillService, SKILLS } from './skills.js';
 
@@ -224,98 +225,7 @@ function startGame() {
     setTimeout(battleSequence, 1000);
 }
 
-async function battleSequence3v3() {
-    const pTeam = TeamService.getTeamRoosters();
-    const cTeam = state.cpuTeam;
-    const rounds = 9; 
-    
-    let pHP = 300; 
-    let cHP = 300;
 
-    // Reset energy for all team members
-    pTeam.forEach(r => r.energy = r.energy_max);
-    cTeam.forEach(r => r.energy = r.energy_max);
-    
-    for (let i = 0; i < rounds; i++) {
-        const pIdx = i % pTeam.length;
-        const cIdx = i % cTeam.length;
-        
-        const pGal = pTeam[pIdx];
-        const cGal = cTeam[cIdx];
-        
-        const pAv = document.getElementById(`player-avatar-${pIdx}`);
-        const cAv = document.getElementById(`cpu-avatar-${cIdx}`);
-
-        // Energy Regen
-        pGal.energy = Math.min(pGal.energy_max, pGal.energy + 20);
-        cGal.energy = Math.min(cGal.energy_max, cGal.energy + 20);
-        updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
-        
-        // --- PLAYER TURN ---
-        const action = await showPlayerSkills(pGal);
-        if (action.type === 'skill') {
-            const skill = SKILLS[pGal.element].find(s => s.id === action.id);
-            pGal.energy -= skill.cost;
-            updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
-
-            const dmgC = SkillService.calculateDamage(pGal.atk, skill.multiplier, pGal.level);
-
-            if (skill.effect === 'heal') {
-                const heal = Math.round(300 * (skill.value / 100));
-                pHP = Math.min(300, pHP + heal);
-                updateHealth('p-hp-bar', -(heal / 300) * 100);
-                showFloatingText(pAv, `+${heal}`, 'left', false);
-            }
-
-            pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(100);
-            cAv.classList.add('anim-hit'); AudioEngine.playHit();
-            showFloatingText(cAv, `-${dmgC}`, 'right', false); 
-            updateHealth('c-hp-bar', (dmgC / 300) * 100);
-            cHP -= dmgC;
-        } else if (action.type === 'item') {
-            const item = state.gameData.inventory.items.find(it => it.id === action.id);
-            item.count--;
-            if (item.type === 'heal') {
-                const heal = 50; // Team heal in 3v3
-                pHP = Math.min(300, pHP + heal);
-                updateHealth('p-hp-bar', -(heal / 300) * 100);
-                showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
-            } else if (item.type === 'energy') {
-                pGal.energy = Math.min(pGal.energy_max, pGal.energy + item.value);
-                updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
-                showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
-            }
-            await sleep(1000);
-        }
-
-        await sleep(250); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(200);
-
-        if (cHP <= 0) break;
-
-        // --- CPU TURN ---
-        const cSkills = SkillService.getSkillsForRooster(cGal.element, cGal.level);
-        const affordableSkills = cSkills.filter(s => s.cost <= cGal.energy);
-        const cSkill = affordableSkills.length > 0 ? affordableSkills[Math.floor(Math.random() * affordableSkills.length)] : cSkills[0];
-        
-        cGal.energy -= cSkill.cost;
-        updateEnergy('c-en-bar', cGal.energy, cGal.energy_max);
-
-        const dmgP = SkillService.calculateDamage(cGal.atk, cSkill.multiplier, cGal.level);
-
-        cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(100);
-        pAv.classList.add('anim-hit'); AudioEngine.playHit();
-        showFloatingText(pAv, `-${dmgP}`, 'left', false); 
-        updateHealth('p-hp-bar', (dmgP / 300) * 100);
-        pHP -= dmgP;
-        await sleep(250); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(400);
-
-        if (pHP <= 0) break;
-    }
-
-    const playerWon = pHP > cHP;
-    saveMatchResult(playerWon, pTeam[0].element, pTeam[0].color);
-    showFinalResult3v3(playerWon);
-}
 
 function showFinalResult3v3(playerWon) {
     const pGrid = document.getElementById('player-avatars-grid');
@@ -338,6 +248,7 @@ function showFinalResult3v3(playerWon) {
 async function showPlayerSkills(rooster) {
     const panel = document.getElementById('skill-panel');
     const container = document.getElementById('skill-buttons');
+    const timerEl = document.getElementById('turn-timer');
     const skills = SkillService.getSkillsForRooster(rooster.element, rooster.level);
     
     container.innerHTML = '';
@@ -345,7 +256,10 @@ async function showPlayerSkills(rooster) {
         const canAfford = rooster.energy >= skill.cost;
         const btn = document.createElement('button');
         if (canAfford) {
-            btn.onclick = () => handleSkillClick(skill.id);
+            btn.onclick = () => {
+                cleanupTimer();
+                handleSkillClick(skill.id);
+            };
             btn.className = "flex flex-col items-center justify-center p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all active:scale-95 group";
         } else {
             btn.className = "flex flex-col items-center justify-center p-2 bg-slate-900 border border-slate-800 rounded-xl opacity-50 cursor-not-allowed";
@@ -362,9 +276,47 @@ async function showPlayerSkills(rooster) {
     
     panel.classList.remove('hidden');
     
+    // Timer Logic
+    let timeLeft = 15;
+    if (timerEl) {
+        timerEl.classList.remove('hidden');
+        timerEl.innerText = `${timeLeft}s`;
+    }
+
+    const timerInterval = setInterval(() => {
+        timeLeft--;
+        if (timerEl) timerEl.innerText = `${timeLeft}s`;
+        
+        if (timeLeft <= 0) {
+            cleanupTimer();
+            // Auto-select first affordable skill or just first skill
+            const defaultSkill = skills.find(s => s.cost <= rooster.energy) || skills[0];
+            handleSkillClick(defaultSkill.id);
+        }
+    }, 1000);
+
+    const cleanupTimer = () => {
+        clearInterval(timerInterval);
+        if (timerEl) timerEl.classList.add('hidden');
+    };
+
+    // Override toggleItemMenu to also cleanup timer if an item is selected
+    const originalHandleItemClick = window.app.handleItemClick;
+    window.app.handleItemClick = (itemId) => {
+        cleanupTimer();
+        originalHandleItemClick(itemId);
+    };
+    
     return new Promise(resolve => {
         playerActionResolve = resolve;
     });
+}
+
+function triggerHaptic(type = 'light') {
+    if (!window.navigator.vibrate) return;
+    if (type === 'light') window.navigator.vibrate(20);
+    else if (type === 'medium') window.navigator.vibrate(50);
+    else if (type === 'heavy') window.navigator.vibrate([100, 50, 100]);
 }
 
 async function battleSequence() {
@@ -377,10 +329,10 @@ async function battleSequence() {
     const cRooster = state.constructor.createRooster(state.cpu.element, state.cpu.color, pRooster.level);
     
     // Initial UI Setup
-    pRooster.energy = pRooster.energy_max;
-    cRooster.energy = cRooster.energy_max;
-    updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max);
-    updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max);
+    pRooster.energy = pRooster.energy_max || 100;
+    cRooster.energy = cRooster.energy_max || 100;
+    updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
+    updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max || 100);
 
     let pHP = pRooster.hp_max;
     let cHP = cRooster.hp_max;
@@ -394,10 +346,10 @@ async function battleSequence() {
     // Turn Loop
     while (pHP > 0 && cHP > 0) {
         // Energy Regen per turn
-        pRooster.energy = Math.min(pRooster.energy_max, pRooster.energy + 15);
-        cRooster.energy = Math.min(cRooster.energy_max, cRooster.energy + 15);
-        updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max);
-        updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max);
+        pRooster.energy = Math.min(pRooster.energy_max || 100, pRooster.energy + 15);
+        cRooster.energy = Math.min(cRooster.energy_max || 100, cRooster.energy + 15);
+        updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
+        updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max || 100);
 
         // --- PLAYER TURN ---
         if (!pStatus.stun) {
@@ -412,8 +364,8 @@ async function battleSequence() {
                 dmgC = Math.round(dmgC * cStatus.shield * (1 / cStatus.def));
                 cStatus.shield = 1;
 
-                pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(200);
-                cAv.classList.add('anim-hit'); AudioEngine.playHit();
+                pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(400);
+                cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
                 showFloatingText(cAv, `-${dmgC}`, 'right', false); 
                 updateHealth('c-hp-bar', (dmgC / cRooster.hp_max) * 100);
                 cHP -= dmgC;
@@ -445,11 +397,11 @@ async function battleSequence() {
                 await sleep(1000);
             }
 
-            await sleep(300); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(500);
+            await sleep(500); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(800);
         } else {
             showFloatingText(pAv, "ATORDUADO!", 'left', false);
             pStatus.stun = false;
-            await sleep(1000);
+            await sleep(1200);
         }
 
         if (cHP <= 0) break;
@@ -461,7 +413,7 @@ async function battleSequence() {
             updateHealth('c-hp-bar', (bDmg / cRooster.hp_max) * 100);
             showFloatingText(cAv, `-${bDmg} 🔥`, 'right', false);
             cStatus.burn--;
-            await sleep(800);
+            await sleep(1000);
         }
 
         if (cHP <= 0) break;
@@ -480,8 +432,8 @@ async function battleSequence() {
             dmgP = Math.round(dmgP * pStatus.shield * (1 / pStatus.def));
             pStatus.shield = 1;
 
-            cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(200);
-            pAv.classList.add('anim-hit'); AudioEngine.playHit();
+            cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(400);
+            pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
             showFloatingText(pAv, `-${dmgP}`, 'left', false); 
             updateHealth('p-hp-bar', (dmgP / pRooster.hp_max) * 100);
             pHP -= dmgP;
@@ -491,11 +443,11 @@ async function battleSequence() {
             if (cSkill.effect === 'shield') cStatus.shield = cSkill.value;
             if (cSkill.effect === 'def') cStatus.def = cSkill.value;
 
-            await sleep(300); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(500);
+            await sleep(500); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(800);
         } else {
             showFloatingText(cAv, "ATORDUADO!", 'right', false);
             cStatus.stun = false;
-            await sleep(1000);
+            await sleep(1200);
         }
 
         // Apply Burn Player
@@ -505,16 +457,16 @@ async function battleSequence() {
             updateHealth('p-hp-bar', (bDmg / pRooster.hp_max) * 100);
             showFloatingText(pAv, `-${bDmg} 🔥`, 'left', false);
             pStatus.burn--;
-            await sleep(800);
+            await sleep(1000);
         }
     }
 
     const playerWon = pHP > 0;
     
     if (playerWon) {
-        pAv.classList.add('anim-winner-l'); cAv.classList.add('anim-ko-r'); showDeadEyes(cAv); AudioEngine.playWin();
+        pAv.classList.add('anim-winner-l'); cAv.classList.add('anim-ko-r'); showDeadEyes(cAv); AudioEngine.playWin(); triggerHaptic('heavy');
     } else {
-        cAv.classList.add('anim-winner-r'); pAv.classList.add('anim-ko-l'); showDeadEyes(pAv); AudioEngine.playLoss();
+        cAv.classList.add('anim-winner-r'); pAv.classList.add('anim-ko-l'); showDeadEyes(pAv); AudioEngine.playLoss(); triggerHaptic('heavy');
     }
 
     saveMatchResult(playerWon, pRooster.element, pRooster.color);
@@ -522,6 +474,100 @@ async function battleSequence() {
     
     const report = { arena: i18n.t(`arena-${state.currentArena.id}`), p: { base: pRooster.atk, final: pHP }, c: { base: cRooster.atk, final: cHP } };
     showDetailedResult(playerWon, report);
+}
+
+async function battleSequence3v3() {
+    const pTeam = TeamService.getTeamRoosters();
+    const cTeam = state.cpuTeam;
+    const rounds = 9; 
+    
+    let pHP = 300; 
+    let cHP = 300;
+
+    // Reset energy for all team members
+    pTeam.forEach(r => r.energy = r.energy_max || 100);
+    cTeam.forEach(r => r.energy = r.energy_max || 100);
+    
+    for (let i = 0; i < rounds; i++) {
+        const pIdx = i % pTeam.length;
+        const cIdx = i % cTeam.length;
+        
+        const pGal = pTeam[pIdx];
+        const cGal = cTeam[cIdx];
+        
+        const pAv = document.getElementById(`player-avatar-${pIdx}`);
+        const cAv = document.getElementById(`cpu-avatar-${cIdx}`);
+
+        // Energy Regen
+        pGal.energy = Math.min(pGal.energy_max || 100, pGal.energy + 20);
+        cGal.energy = Math.min(cGal.energy_max || 100, cGal.energy + 20);
+        updateEnergy('p-en-bar', pGal.energy, pGal.energy_max || 100);
+        
+        // --- PLAYER TURN ---
+        const action = await showPlayerSkills(pGal);
+        if (action.type === 'skill') {
+            const skill = SKILLS[pGal.element].find(s => s.id === action.id);
+            pGal.energy -= skill.cost;
+            updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
+
+            const dmgC = SkillService.calculateDamage(pGal.atk, skill.multiplier, pGal.level);
+
+            if (skill.effect === 'heal') {
+                const heal = Math.round(300 * (skill.value / 100));
+                pHP = Math.min(300, pHP + heal);
+                updateHealth('p-hp-bar', -(heal / 300) * 100);
+                showFloatingText(pAv, `+${heal}`, 'left', false);
+            }
+
+            pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(400);
+            cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
+            showFloatingText(cAv, `-${dmgC}`, 'right', false); 
+            updateHealth('c-hp-bar', (dmgC / 300) * 100);
+            cHP -= dmgC;
+        } else if (action.type === 'item') {
+            const item = state.gameData.inventory.items.find(it => it.id === action.id);
+            item.count--;
+            if (item.type === 'heal') {
+                const heal = 50; // Team heal in 3v3
+                pHP = Math.min(300, pHP + heal);
+                updateHealth('p-hp-bar', -(heal / 300) * 100);
+                showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
+            } else if (item.type === 'energy') {
+                pGal.energy = Math.min(pGal.energy_max, pGal.energy + item.value);
+                updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
+                showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
+            }
+            await sleep(1500);
+        }
+
+        await sleep(500); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(800);
+
+        if (cHP <= 0) break;
+
+        // --- CPU TURN ---
+        const cSkills = SkillService.getSkillsForRooster(cGal.element, cGal.level);
+        const affordableSkills = cSkills.filter(s => s.cost <= cGal.energy);
+        const cSkill = affordableSkills.length > 0 ? affordableSkills[Math.floor(Math.random() * affordableSkills.length)] : cSkills[0];
+        
+        cGal.energy -= cSkill.cost;
+        updateEnergy('c-en-bar', cGal.energy, cGal.energy_max);
+
+        const dmgP = SkillService.calculateDamage(cGal.atk, cSkill.multiplier, cGal.level);
+
+        cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(400);
+        pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
+        showFloatingText(pAv, `-${dmgP}`, 'left', false); 
+        updateHealth('p-hp-bar', (dmgP / 300) * 100);
+        pHP -= dmgP;
+        await sleep(500); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(800);
+
+        if (pHP <= 0) break;
+    }
+
+    const playerWon = pHP > cHP;
+    if (playerWon) triggerHaptic('heavy');
+    saveMatchResult(playerWon, pTeam[0].element, pTeam[0].color);
+    showFinalResult3v3(playerWon);
 }
 
 async function saveMatchResult(win, pEl, pCol) {
@@ -579,6 +625,15 @@ async function saveMatchResult(win, pEl, pCol) {
         date: new Date().toLocaleTimeString(state.gameData.settings.lang, { hour: '2-digit', minute: '2-digit' })
     });
     if (state.gameData.matches.length > 20) state.gameData.matches.pop();
+
+    // Engenharia Avançada: Sistema de Log Detalhado
+    MatchLogService.addLog({
+        result: resString,
+        bet: state.currentBet,
+        financial: financial,
+        playerRoosters: activeRoosters.map(r => ({ element: r.element, color: r.color, level: r.level })),
+        opponentRoosters: state.gameMode === '3v3' ? state.cpuTeam.map(r => ({ element: r.element, color: r.color, level: r.level })) : [{ element: state.cpu.element, color: state.cpu.color, level: activeRoosters[0]?.level || 1 }]
+    });
     
     // Track Missions
     MissionService.updateProgress(MISSION_TYPES.MATCHES, 1);
