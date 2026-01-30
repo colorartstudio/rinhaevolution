@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RINHA EVOLUTION: MVP Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Roboto:wght@400;700;900&display=swap');
+
+        body { 
+            font-family: 'Roboto', sans-serif; 
+            overscroll-behavior-y: none;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
+
+        /* --- ANIMAÇÕES --- */
+        @keyframes attack-l { 0% { transform: translateX(0) scale(1); } 50% { transform: translateX(60px) scale(1.2); } 100% { transform: translateX(0) scale(1); } }
+        @keyframes attack-r { 0% { transform: translateX(0) scaleX(-1) scale(1); } 50% { transform: translateX(-60px) scaleX(-1) scale(1.2); } 100% { transform: translateX(0) scaleX(-1) scale(1); } }
+        @keyframes damage-shake { 0%, 100% { filter: brightness(1); transform: translate(0,0); } 20% { filter: sepia(1) hue-rotate(-50deg) saturate(5); transform: translate(-8px, 8px); } 40% { filter: sepia(1) hue-rotate(-50deg) saturate(5); transform: translate(8px, -8px); } }
+        @keyframes victory-jump { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-20px) scale(1.1); filter: drop-shadow(0 0 10px gold); } }
+        
+        @keyframes knockout-l {
+            0% { transform: rotate(0) translateY(0); filter: grayscale(0); }
+            20% { transform: rotate(-20deg) translateY(-20px) translateX(-20px); filter: grayscale(0.5); }
+            40% { transform: rotate(-45deg) translateY(0px) translateX(-30px); }
+            100% { transform: rotate(-90deg) translateY(40px) translateX(-40px); filter: grayscale(1) brightness(0.6) contrast(1.2); opacity: 0.8; }
+        }
+        @keyframes knockout-r {
+            0% { transform: scaleX(-1) rotate(0) translateY(0); filter: grayscale(0); }
+            20% { transform: scaleX(-1) rotate(20deg) translateY(-20px) translateX(-20px); filter: grayscale(0.5); }
+            40% { transform: scaleX(-1) rotate(45deg) translateY(0px) translateX(-30px); }
+            100% { transform: scaleX(-1) rotate(90deg) translateY(40px) translateX(-40px); filter: grayscale(1) brightness(0.6) contrast(1.2); opacity: 0.8; }
+        }
+        @keyframes dizzy {
+            0% { transform: rotate(0deg) translateY(0); filter: grayscale(0.5); }
+            25% { transform: rotate(-5deg) translateY(5px); }
+            75% { transform: rotate(5deg) translateY(5px); }
+            100% { transform: rotate(0deg) translateY(0); filter: grayscale(0.5); }
+        }
+
+        .anim-atk-l { animation: attack-l 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .anim-atk-r { animation: attack-r 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .anim-hit { animation: damage-shake 0.3s; }
+        .anim-winner-l { animation: victory-jump 0.8s infinite; }
+        .anim-winner-r { animation: victory-jump 0.8s infinite; transform-origin: bottom center; }
+        .anim-ko-l { animation: knockout-l 0.6s forwards ease-in; }
+        .anim-ko-r { animation: knockout-r 0.6s forwards ease-in; }
+        .anim-dizzy-l { animation: dizzy 2s infinite ease-in-out; }
+        .anim-dizzy-r { animation: dizzy 2s infinite ease-in-out; transform-origin: bottom center; }
+        .anim-flash { animation: flash-arena 0.5s forwards; pointer-events: none; }
+        .anim-float { animation: float-ui 3s ease-in-out infinite; }
+        @keyframes flash-arena { 0% { background-color: white; opacity: 1; } 100% { background-color: transparent; opacity: 0; } }
+        @keyframes float-ui { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
+
+        /* Estilos de Arena */
+        .arena-volcano { background: radial-gradient(circle at center, #7f1d1d 0%, #2a0a0a 100%); }
+        .arena-water { background: radial-gradient(circle at center, #0284c7 0%, #082f49 100%); }
+        .arena-earth { background: radial-gradient(circle at center, #4d7c0f 0%, #1a2e05 100%); }
+        .arena-air { background: radial-gradient(circle at center, #7dd3fc 0%, #0c4a6e 100%); }
+
+        /* Dano Flutuante */
+        .damage-number {
+            position: absolute; font-family: 'Black Ops One', cursive; font-size: 2.5rem; color: #ffeb3b;
+            text-shadow: 3px 3px 0 #ff0000; pointer-events: none; animation: floatUp 0.8s forwards;
+            z-index: 50; width: 100px; text-align: center;
+        }
+        .damage-crit { font-size: 3.5rem; color: #ffffff; text-shadow: 0 0 10px #ff0000, 3px 3px 0 #000; }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            20% { transform: translateY(-30px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-80px) scale(1); opacity: 0; }
+        }
+
+        /* UI Helpers */
+        .btn-glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .btn-glass-selected { background: rgba(255, 255, 255, 0.25); border-color: rgba(255, 255, 255, 0.8); box-shadow: 0 0 15px rgba(255, 255, 255, 0.3); }
+        .modal-base { transition: all 0.3s ease-out; }
+        .modal-hidden { opacity: 0; pointer-events: none; transform: scale(0.95); }
+        .modal-visible { opacity: 1; pointer-events: auto; transform: scale(1); }
+        
+        /* Moeda */
+        .coin-icon { color: #ffd700; text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+
+        /* Tournament Bracket */
+        #tournament-bracket::-webkit-scrollbar { height: 4px; }
+        #tournament-bracket::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-950 min-h-screen text-slate-100 selection:bg-yellow-500 selection:text-black flex flex-col">
+
+    <!-- GAME STATE: LOGIN SCREEN -->
+    <div id="screen-login" class="flex-1 flex flex-col items-center justify-center p-6 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 to-slate-950">
+        <div class="w-full max-w-sm text-center">
+            <h1 class="text-4xl md:text-6xl mb-2 italic bg-gradient-to-r from-yellow-400 to-red-500 bg-clip-text text-transparent font-black tracking-tighter" data-i18n="login-title">ENTRAR NA RINHA</h1>
+            <p class="text-slate-400 text-sm mb-8 font-bold uppercase tracking-widest" data-i18n="login-subtitle">Sua jornada épica começa aqui</p>
+            
+            <div class="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl">
+                <div class="space-y-4 mb-6">
+                    <div class="relative">
+                        <i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="email" id="login-email" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-4 py-4 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="E-mail">
+                    </div>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="password" id="login-password" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-4 py-4 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Senha">
+                    </div>
+                </div>
+                
+                <button onclick="window.app.handleLogin()" class="w-full py-4 bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-black text-lg uppercase tracking-widest rounded-2xl shadow-lg border-b-4 border-orange-800 active:border-b-0 active:translate-y-1 transition-all mb-4" data-i18n="login-button">ENTRAR</button>
+                
+                <button onclick="window.app.handleGoogleLogin()" class="w-full py-3 bg-white text-slate-900 font-bold text-sm uppercase tracking-widest rounded-xl border border-slate-300 hover:bg-slate-100 transition-all mb-3 flex items-center justify-center gap-3">
+                    <img src="https://www.google.com/favicon.ico" class="w-4 h-4" alt="Google">
+                    Entrar com Google
+                </button>
+                
+                <button onclick="window.app.handleGuestLogin()" class="w-full py-3 bg-slate-800 text-slate-400 hover:text-white font-bold text-sm uppercase tracking-widest rounded-xl border border-slate-700 hover:border-slate-500 transition-all mb-6">ENTRAR COMO CONVIDADO</button>
+                
+                <div class="flex items-center justify-between text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                    <span>Não tem conta?</span>
+                    <button onclick="window.app.showRegister()" class="text-yellow-500 hover:text-yellow-400 transition-colors">Cadastre-se aqui</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME STATE: REGISTER SCREEN -->
+    <div id="screen-register" class="hidden flex-1 flex flex-col items-center justify-center p-6 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 to-slate-950">
+        <div class="w-full max-w-sm text-center">
+            <h1 class="text-4xl md:text-6xl mb-2 italic bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent font-black tracking-tighter" data-i18n="reg-title">NOVA CONTA</h1>
+            <p class="text-slate-400 text-sm mb-8 font-bold uppercase tracking-widest" data-i18n="reg-subtitle">Torne-se um mestre de galos</p>
+            
+            <div class="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl">
+                <div class="space-y-4 mb-6">
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="text" id="reg-username" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-4 py-4 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Nome de Treinador">
+                    </div>
+                    <div class="relative">
+                        <i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="email" id="reg-email" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-4 py-4 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Seu melhor e-mail">
+                    </div>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="password" id="reg-password" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-4 py-4 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Crie uma senha forte">
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <label class="block text-[10px] text-slate-500 font-black uppercase tracking-widest mb-3" data-i18n="login-lang-label">Idioma Preferido</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="window.app.setLang('pt-BR')" class="lang-btn bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] font-bold hover:border-yellow-500 transition-all" id="lang-pt-BR">�🇷 PT-BR</button>
+                        <button onclick="window.app.setLang('en')" class="lang-btn bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] font-bold hover:border-yellow-500 transition-all" id="lang-en">�� EN-US</button>
+                        <button onclick="window.app.setLang('es')" class="lang-btn bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] font-bold hover:border-yellow-500 transition-all" id="lang-es">🇪🇸 ES-ES</button>
+                    </div>
+                </div>
+                
+                <button onclick="window.app.handleRegister()" class="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black text-lg uppercase tracking-widest rounded-2xl shadow-lg border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all mb-4">CADASTRAR AGORA</button>
+                
+                <button onclick="window.app.handleGoogleLogin()" class="w-full py-3 bg-white text-slate-900 font-bold text-sm uppercase tracking-widest rounded-xl border border-slate-300 hover:bg-slate-100 transition-all mb-6 flex items-center justify-center gap-3">
+                    <img src="https://www.google.com/favicon.ico" class="w-4 h-4" alt="Google">
+                    Cadastrar com Google
+                </button>
+                
+                <div class="flex items-center justify-between text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                    <span>Já tem conta?</span>
+                    <button onclick="window.app.showLogin()" class="text-yellow-500 hover:text-yellow-400 transition-colors">Entrar agora</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav id="bottom-nav" class="hidden fixed bottom-0 left-0 w-full bg-slate-900/90 backdrop-blur-xl border-t border-slate-800 flex justify-around items-center p-2 z-[60] pb-6">
+        <button onclick="window.app.showScreen('selection')" id="nav-selection" class="flex flex-col items-center gap-1 text-yellow-500">
+            <i class="fas fa-swords text-xl"></i>
+            <span class="text-[10px] font-black uppercase tracking-widest">Rinha</span>
+        </button>
+        <button onclick="window.app.showScreen('shop')" id="nav-shop" class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fas fa-store text-xl"></i>
+            <span class="text-[10px] font-black uppercase tracking-widest">Loja</span>
+        </button>
+        <button onclick="window.app.showScreen('inventory')" id="nav-inventory" class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fas fa-box-open text-xl"></i>
+            <span class="text-[10px] font-black uppercase tracking-widest">Mochila</span>
+        </button>
+        <button onclick="window.app.showScreen('missions')" id="nav-missions" class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fas fa-tasks text-xl"></i>
+            <span class="text-[10px] font-black uppercase tracking-widest">Missões</span>
+        </button>
+        <button onclick="window.app.showScreen('tournament')" id="nav-tournament" class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fas fa-sitemap text-xl"></i>
+            <span class="text-[10px] font-black uppercase tracking-widest">Torneio</span>
+        </button>
+        <button onclick="window.app.showScreen('referral')" id="nav-referral" class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fas fa-users text-xl"></i>
+            <span class="text-[10px] font-black uppercase tracking-widest">Rede</span>
+        </button>
+        <button onclick="window.app.showScreen('leaderboard')" id="nav-leaderboard" class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fas fa-trophy text-xl"></i>
+            <span class="text-[10px] font-black uppercase tracking-widest">Ranking</span>
+        </button>
+    </nav>
+
+    <!-- GAME STATE: SELECTION SCREEN -->
+    <div id="screen-selection" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40 md:pb-6 transition-all duration-300">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-4 gap-1 md:gap-2">
+            <div class="flex-shrink-0">
+                <h1 class="text-lg md:text-3xl italic bg-gradient-to-r from-yellow-400 to-red-500 bg-clip-text text-transparent leading-none font-black tracking-tighter" data-i18n="sel-title">RINHA EVOLUTION</h1>
+                <p class="text-[8px] md:text-[10px] text-slate-500 font-bold tracking-widest uppercase" data-i18n="sel-subtitle">Mobile Edition</p>
+            </div>
+            
+            <div class="flex gap-1 md:gap-2 items-center overflow-x-auto no-scrollbar py-1">
+                <div id="mode-instructions" class="hidden absolute top-16 right-4 z-20 bg-slate-900 border border-blue-500/50 p-3 rounded-xl shadow-2xl max-w-[200px] animate-bounce-slow">
+                    <p class="text-[9px] text-blue-400 font-bold uppercase mb-1"><i class="fas fa-info-circle mr-1"></i> Modo 3v3:</p>
+                    <p class="text-[8px] text-slate-300 leading-tight">Compre 3 galos no <b>Mercado</b> e equipe-os na sua <b>Mochila</b> para lutar!</p>
+                </div>
+                <div class="flex bg-slate-900 border border-slate-700 rounded-full p-0.5 md:p-1">
+                    <button onclick="window.app.setMode('1v1')" id="mode-1v1" class="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase transition-all bg-yellow-500 text-black">1v1</button>
+                    <button onclick="window.app.setMode('3v3')" id="mode-3v3" class="px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-black uppercase transition-all text-slate-500">3v3</button>
+                </div>
+                <button onclick="window.app.toggleWalletModal()" class="bg-slate-900 border border-slate-700 rounded-full px-2 md:px-3 py-0.5 md:py-1 flex items-center gap-1 md:gap-2 hover:bg-slate-800 transition-colors whitespace-nowrap">
+                    <i class="fas fa-wallet text-slate-400 text-xs md:text-base"></i>
+                    <span id="header-balance" class="font-mono font-bold text-yellow-400 text-xs md:text-sm">1000 RC</span>
+                </button>
+                <div class="flex gap-1">
+                    <button onclick="window.app.toggleSettingsModal()" class="bg-slate-800 w-7 h-7 md:w-8 md:h-8 rounded-full border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center">
+                        <i class="fas fa-cog text-xs md:text-base"></i>
+                    </button>
+                    <button onclick="window.app.toggleRankModal()" class="bg-slate-800 w-7 h-7 md:w-8 md:h-8 rounded-full border border-slate-700 text-yellow-500 hover:text-white flex items-center justify-center">
+                        <i class="fas fa-trophy text-xs md:text-base"></i>
+                    </button>
+                    <button onclick="window.app.showChallengeModal()" class="bg-slate-800 w-7 h-7 md:w-8 md:h-8 rounded-full border border-slate-700 text-blue-400 hover:text-white flex items-center justify-center">
+                        <i class="fas fa-share-alt text-xs md:text-base"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex flex-col lg:flex-row gap-6">
+            <!-- PREVIEW -->
+            <div class="lg:w-1/2 flex flex-col">
+                <div class="bg-slate-900/50 rounded-2xl border border-slate-800 flex-1 relative overflow-hidden min-h-[280px] flex flex-col items-center justify-center p-4 shadow-2xl">
+                    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-700 via-slate-900 to-slate-950"></div>
+                    <h2 id="preview-name" class="relative z-10 text-3xl md:text-5xl text-white mb-2 drop-shadow-lg text-center font-display">---</h2>
+                    <div class="relative z-10 flex gap-2 mb-4">
+                        <span id="preview-stat-base" class="px-3 py-1 rounded bg-slate-800 text-xs font-bold text-slate-300 border border-slate-700">---</span>
+                        <span id="preview-stat-type" class="px-3 py-1 rounded bg-slate-800 text-xs font-bold text-slate-300 border border-slate-700">---</span>
+                    </div>
+                    <div id="selection-preview-avatar" class="relative z-10 w-40 h-40 md:w-56 md:h-56 filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] anim-float transition-all duration-300">
+                        <div class="w-full h-full flex items-center justify-center text-slate-700"><i class="fas fa-question-circle text-6xl"></i></div>
+                    </div>
+                    <button onclick="window.app.showChallengeModal()" class="relative z-10 mt-4 px-4 py-1.5 bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 rounded-full text-[10px] font-black uppercase tracking-widest text-blue-400 transition-all flex items-center gap-2">
+                        <i class="fas fa-share-alt"></i> Desafiar Amigo
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTROLES -->
+            <div class="lg:w-1/2 flex flex-col gap-4">
+                <div>
+                    <h3 class="text-xs text-yellow-500 font-bold mb-2 uppercase tracking-wider flex items-center gap-2" data-i18n="sel-lineage">1. Linhagem</h3>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button onclick="window.app.selectElement('fire')" id="btn-fire" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🔥</span><div class="text-[10px] text-slate-300 font-bold" data-i18n="el-fire">Fogo</div></button>
+                        <button onclick="window.app.selectElement('earth')" id="btn-earth" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🏔️</span><div class="text-[10px] text-slate-300 font-bold" data-i18n="el-earth">Terra</div></button>
+                        <button onclick="window.app.selectElement('water')" id="btn-water" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🌊</span><div class="text-[10px] text-slate-300 font-bold" data-i18n="el-water">Água</div></button>
+                        <button onclick="window.app.selectElement('air')" id="btn-air" class="btn-glass p-2 rounded-xl flex flex-col items-center gap-1 transition-all active:scale-95"><span class="text-xl">🌪️</span><div class="text-[10px] text-slate-300 font-bold" data-i18n="el-air">Ar</div></button>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="flex justify-between items-end mb-2">
+                        <h3 class="text-xs text-blue-400 font-bold uppercase tracking-wider flex items-center gap-2" data-i18n="sel-paint">2. Pintura</h3>
+                        <button onclick="window.app.toggleInfo()" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 hover:text-white"><i class="fas fa-info-circle"></i></button>
+                    </div>
+                    <div id="counter-info" class="hidden bg-slate-800 p-2 rounded mb-2 text-[10px] text-center text-slate-300 border border-slate-700">Vermelho > Azul > Verde > Amarelo > Vermelho</div>
+                    <div class="grid grid-cols-4 gap-3">
+                        <button onclick="window.app.selectColor('red')" id="btn-color-red" class="aspect-square rounded-full bg-gradient-to-br from-red-500 to-red-800 border-2 border-transparent shadow-lg transform active:scale-90 transition-all"></button>
+                        <button onclick="window.app.selectColor('blue')" id="btn-color-blue" class="aspect-square rounded-full bg-gradient-to-br from-blue-500 to-blue-800 border-2 border-transparent shadow-lg transform active:scale-90 transition-all"></button>
+                        <button onclick="window.app.selectColor('green')" id="btn-color-green" class="aspect-square rounded-full bg-gradient-to-br from-green-500 to-green-800 border-2 border-transparent shadow-lg transform active:scale-90 transition-all"></button>
+                        <button onclick="window.app.selectColor('yellow')" id="btn-color-yellow" class="aspect-square rounded-full bg-gradient-to-br from-yellow-400 to-yellow-700 border-2 border-transparent shadow-lg transform active:scale-90 transition-all"></button>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs text-green-400 font-bold mb-2 uppercase tracking-wider flex items-center gap-2" data-i18n="sel-bet">3. Valor da Aposta (RC)</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="window.app.selectBet(50)" id="btn-bet-50" class="btn-glass p-2 rounded-lg text-center font-mono font-bold text-yellow-400 border-slate-700 hover:border-yellow-500 transition-all">50</button>
+                        <button onclick="window.app.selectBet(100)" id="btn-bet-100" class="btn-glass p-2 rounded-lg text-center font-mono font-bold text-yellow-400 border-yellow-500 bg-white/10 transition-all">100</button>
+                        <button onclick="window.app.selectBet(500)" id="btn-bet-500" class="btn-glass p-2 rounded-lg text-center font-mono font-bold text-yellow-400 border-slate-700 hover:border-yellow-500 transition-all">500</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botão Iniciar -->
+        <div class="fixed bottom-24 left-0 w-full p-4 bg-gradient-to-t from-slate-950/80 to-transparent lg:static lg:bg-none lg:p-0 lg:mt-6 z-50">
+            <button id="btn-start" onclick="window.app.checkBalanceAndStart()" class="w-full max-w-5xl mx-auto py-4 bg-slate-800 text-slate-500 font-black text-xl uppercase tracking-widest rounded-2xl shadow-2xl cursor-not-allowed transition-all border-b-4 border-slate-950 active:border-b-0 active:translate-y-1" disabled data-i18n="sel-start">SELECIONAR GALO</button>
+        </div>
+    </div>
+
+    <!-- GAME STATE: SHOP SCREEN -->
+    <div id="screen-shop" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+        <header class="mb-6">
+            <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">MERCADO</h1>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Adquira novos galos e suprimentos</p>
+        </header>
+
+        <h2 class="text-xs font-black text-yellow-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i class="fas fa-flask"></i> Suprimentos de Combate
+        </h2>
+        <div id="combat-items-list" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <!-- Itens gerados via JS -->
+        </div>
+
+        <h2 class="text-xs font-black text-yellow-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <i class="fas fa-egg"></i> Novos Galos
+        </h2>
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div id="shop-list" class="contents"></div>
+        </div>
+
+        <h2 class="text-xl font-display text-yellow-500 uppercase italic mb-4">Leilão em Destaque</h2>
+        <div id="auction-list" class="space-y-4">
+            <!-- Leilões gerados via JS -->
+        </div>
+    </div>
+
+    <!-- GAME STATE: INVENTORY SCREEN -->
+    <div id="screen-inventory" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+        <header class="mb-6">
+            <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">MINHA MOCHILA</h1>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gerencie seu time de combate</p>
+        </header>
+
+        <div id="inventory-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Itens gerados via JS -->
+        </div>
+    </div>
+
+    <!-- GAME STATE: REFERRAL SCREEN -->
+    <div id="screen-referral" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+        <header class="mb-6">
+            <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">MINHA REDE</h1>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Indique e ganhe em 5 níveis</p>
+        </header>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 mb-6">
+            <div class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2">Seu Link de Indicação</div>
+            <div class="flex gap-2">
+                <input type="text" id="ref-link-input" readonly class="flex-1 bg-black/50 border border-slate-700 rounded-xl px-4 py-3 text-xs font-mono text-yellow-500" value="---">
+                <button onclick="window.app.copyReferralLink()" class="bg-yellow-500 text-black px-4 rounded-xl font-bold text-xs">COPIAR</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center">
+                <div class="text-[10px] text-slate-500 font-black uppercase tracking-widest">Total Ganho</div>
+                <div id="ref-total-earnings" class="text-2xl font-mono font-bold text-green-400">0 RC</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center">
+                <div class="text-[10px] text-slate-500 font-black uppercase tracking-widest">Seu Código</div>
+                <div id="ref-my-code" class="text-2xl font-mono font-bold text-yellow-500">---</div>
+            </div>
+        </div>
+
+        <h3 class="text-xs text-slate-400 font-bold uppercase mb-4 tracking-widest">Estatísticas por Nível</h3>
+        <div id="ref-levels-list" class="space-y-2">
+            <!-- Níveis gerados via JS -->
+        </div>
+    </div>
+
+    <!-- GAME STATE: LEADERBOARD SCREEN -->
+    <div id="screen-leaderboard" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+        <header class="mb-6">
+            <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">RANKING GLOBAL</h1>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Os melhores treinadores da rinha</p>
+        </header>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+            <div class="bg-slate-800 p-4 grid grid-cols-12 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-700">
+                <div class="col-span-2 text-center">Pos</div>
+                <div class="col-span-6">Treinador</div>
+                <div class="col-span-4 text-right">Saldo</div>
+            </div>
+            <div id="leaderboard-list" class="divide-y divide-slate-800">
+                <!-- Rankings gerados via JS -->
+                <div class="p-10 text-center text-slate-500 animate-pulse">Carregando ranking...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME STATE: MISSIONS SCREEN -->
+    <div id="screen-missions" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+        <header class="mb-6">
+            <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">MISSÕES DIÁRIAS</h1>
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Complete tarefas para ganhar recompensas extras</p>
+        </header>
+
+        <div id="missions-list" class="space-y-4">
+             <!-- Missões geradas via JS -->
+         </div>
+     </div>
+
+     <!-- GAME STATE: TOURNAMENT SCREEN -->
+     <div id="screen-tournament" class="hidden flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-6 pb-40">
+         <header class="mb-6 flex justify-between items-end">
+             <div>
+                <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter">GRANDE TORNEIO</h1>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Vença 3 lutas seguidas para o Jackpot</p>
+             </div>
+             <button id="btn-start-tournament" onclick="window.app.startTournament()" class="bg-yellow-500 text-black px-6 py-2 rounded-xl font-black uppercase text-xs shadow-lg active:scale-95 transition-all">Iniciar Torneio (500 RC)</button>
+         </header>
+
+         <div id="tournament-bracket" class="flex-1 bg-slate-900/50 border border-slate-800 rounded-3xl p-4 overflow-x-auto">
+             <!-- Bracket visual gerado via JS -->
+             <div class="flex flex-col items-center justify-center h-64 text-slate-600 uppercase font-black tracking-widest text-center">
+                 <i class="fas fa-trophy text-4xl mb-4 opacity-20"></i>
+                 Nenhum torneio ativo.<br>Pague a taxa para começar!
+             </div>
+         </div>
+     </div>
+
+    <!-- GAME STATE: BATTLE ARENA -->
+    <div id="screen-battle" class="hidden relative h-[100dvh] w-full overflow-hidden flex flex-col bg-black">
+        <div id="arena-bg" class="absolute inset-0 z-0 transition-colors duration-300 arena-volcano opacity-80">
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-30"></div>
+        </div>
+
+        <div id="roulette-overlay" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm">
+            <p class="text-slate-400 text-sm uppercase tracking-widest mb-4 animate-pulse" data-i18n="btl-sorting">Sorteando Arena...</p>
+            <div class="text-9xl mb-4 transition-transform duration-100" id="roulette-icon">❓</div>
+            <h2 class="text-4xl font-black text-white uppercase italic" id="roulette-name">---</h2>
+            <div id="roulette-flash" class="absolute inset-0 bg-white opacity-0 pointer-events-none"></div>
+        </div>
+
+        <div class="relative z-20 pt-4 px-4 flex justify-between items-start">
+            <div class="bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
+                <span id="arena-icon" class="text-lg">🌋</span>
+                <div class="flex flex-col">
+                    <span id="arena-name" class="text-xs font-bold text-white uppercase leading-none">---</span>
+                    <span id="arena-bonus-desc" class="text-[10px] text-green-400 leading-none mt-0.5">Bonus: ---</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="battle-stage" class="relative z-10 flex-1 flex flex-col justify-center items-center pb-20 w-full max-w-lg mx-auto opacity-0 transition-opacity duration-1000">
+            <!-- Time CPU -->
+            <div id="cpu-team-container" class="w-full px-8 flex flex-col items-end mb-8 relative">
+                <div class="flex items-center gap-3 mb-1 w-full justify-end">
+                    <div id="cpu-modifiers" class="flex gap-1"></div>
+                    <span id="cpu-name-display" class="font-display text-lg text-slate-200 shadow-black drop-shadow-md" data-i18n="res-cpu">CPU</span>
+                </div>
+                <div class="w-2/3 h-3 bg-slate-800/80 rounded-full border border-slate-600 overflow-hidden"><div id="c-hp-bar" class="h-full bg-gradient-to-l from-red-500 to-red-400 w-full transition-all duration-300"></div></div>
+                <div class="w-1/2 h-1 bg-slate-800/80 rounded-full border border-slate-700 overflow-hidden mt-1"><div id="c-en-bar" class="h-full bg-blue-500 w-full transition-all duration-300"></div></div>
+                <div id="cpu-avatars-grid" class="flex flex-row-reverse gap-2 mt-2">
+                    <div id="cpu-avatar" class="w-32 h-32 md:w-48 md:h-48 scale-x-[-1] transition-transform duration-300"></div>
+                </div>
+            </div>
+
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-20 pointer-events-none">
+                <h1 class="text-9xl font-black text-white mix-blend-overlay italic" data-i18n="btl-vs">VS</h1>
+            </div>
+
+            <!-- Time Player -->
+            <div id="player-team-container" class="w-full px-8 flex flex-col items-start mt-4 relative">
+                <div id="player-avatars-grid" class="flex gap-2 mb-2">
+                    <div id="player-avatar" class="w-36 h-36 md:w-52 md:h-52 transition-transform duration-300"></div>
+                </div>
+                <div class="flex items-center gap-3 mb-1 w-full mt-2">
+                    <span id="player-name-display" class="font-display text-xl text-white shadow-black drop-shadow-md">PLAYER</span>
+                    <div id="player-modifiers" class="flex gap-1"></div>
+                </div>
+                <div class="w-2/3 h-4 bg-slate-800/80 rounded-full border border-slate-600 overflow-hidden relative shadow-lg shadow-green-900/20">
+                    <div id="p-hp-bar" class="h-full bg-gradient-to-r from-green-500 to-green-400 w-full transition-all duration-300"></div>
+                </div>
+                <div class="w-1/2 h-2 bg-slate-800/80 rounded-full border border-slate-700 overflow-hidden mt-1 relative">
+                    <div id="p-en-bar" class="h-full bg-blue-500 w-full transition-all duration-300"></div>
+                    <span id="p-en-text" class="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white uppercase">100/100 MP</span>
+                </div>
+            </div>
+
+            <!-- SKILL SELECTION PANEL -->
+            <div id="skill-panel" class="hidden absolute bottom-24 left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-4 animate-slide-up">
+                <div class="bg-slate-900/90 backdrop-blur-xl border border-yellow-500/30 rounded-3xl p-4 shadow-2xl">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-yellow-500">Ações de Combate</span>
+                        <div class="flex gap-2">
+                            <button onclick="window.app.toggleItemMenu()" class="px-3 py-1 bg-slate-800 text-white text-[8px] font-black uppercase rounded-lg border border-slate-700 hover:bg-slate-700 transition-colors">
+                                <i class="fas fa-flask mr-1"></i> Itens
+                            </button>
+                        </div>
+                    </div>
+                    <div id="skill-buttons" class="grid grid-cols-3 gap-2">
+                        <!-- Botões de habilidades via JS -->
+                    </div>
+                    <!-- ITEM MENU (Hidden by default) -->
+                    <div id="item-menu" class="hidden mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 animate-fade-in">
+                        <!-- Itens gerados via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="result-overlay" class="absolute inset-0 z-50 bg-black/95 flex items-center justify-center hidden backdrop-blur-xl p-4 overflow-y-auto">
+            <div class="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-5 text-center shadow-2xl transform scale-90 transition-all duration-300 opacity-0" id="result-card">
+                <div id="result-icon" class="text-6xl mb-2 animate-bounce">🏆</div>
+                <h2 id="result-title" class="text-4xl font-black text-white mb-2 uppercase italic tracking-tighter" data-i18n="res-victory">Vitória!</h2>
+                
+                <div class="bg-slate-800 rounded-xl p-3 mb-4 border border-yellow-500/30">
+                    <div class="text-xs text-slate-400 uppercase font-bold" data-i18n="res-finance-title">Resultado Financeiro</div>
+                    <div id="financial-result" class="text-3xl font-mono font-bold text-yellow-400 mt-1">+180 RC</div>
+                    <div id="financial-detail" class="text-[10px] text-slate-500 mt-1">Aposta: 100 | Prêmio: 180 (Taxa 10%)</div>
+                </div>
+
+                <div class="bg-slate-800/50 rounded-lg p-2 mb-4 text-xs text-slate-400 flex items-center justify-center gap-2 border border-slate-700">
+                    <i class="fas fa-map-marker-alt"></i> <span id="res-arena-name" class="font-bold text-white">---</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-slate-800 rounded-xl p-3 border border-slate-700 relative overflow-hidden">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase mb-2" data-i18n="res-you">Você</h3>
+                        <div class="w-12 h-12 mx-auto mb-2 bg-slate-700/50 rounded-full flex items-center justify-center" id="res-p-icon"></div>
+                        <div class="space-y-1 text-[10px] text-left border-t border-slate-700/50 pt-2 mt-2">
+                            <div class="flex justify-between"><span>Base:</span> <span id="res-p-base" class="font-mono text-white">0</span></div>
+                            <div class="flex justify-between text-slate-500" id="res-p-arena"><span>Arena:</span> <span>--</span></div>
+                            <div class="flex justify-between text-slate-500" id="res-p-color"><span>Cor:</span> <span>--</span></div>
+                        </div>
+                        <div class="mt-2 pt-2 border-t border-slate-700 text-xl font-black text-green-400" id="res-p-final">0</div>
+                    </div>
+                    <div class="bg-slate-800 rounded-xl p-3 border border-slate-700 relative overflow-hidden">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase mb-2" data-i18n="res-cpu">CPU</h3>
+                        <div class="w-12 h-12 mx-auto mb-2 bg-slate-700/50 rounded-full flex items-center justify-center" id="res-c-icon"></div>
+                        <div class="space-y-1 text-[10px] text-left border-t border-slate-700/50 pt-2 mt-2">
+                            <div class="flex justify-between"><span>Base:</span> <span id="res-c-base" class="font-mono text-white">0</span></div>
+                            <div class="flex justify-between text-slate-500" id="res-c-arena"><span>Arena:</span> <span>--</span></div>
+                            <div class="flex justify-between text-slate-500" id="res-c-color"><span>Cor:</span> <span>--</span></div>
+                        </div>
+                        <div class="mt-2 text-xl font-black text-red-400" id="res-c-final">0</div>
+                    </div>
+                </div>
+
+                <p id="result-reason" class="text-slate-300 text-sm font-bold leading-relaxed mb-6">---</p>
+                <button onclick="window.app.resetGame()" class="w-full py-4 bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase rounded-xl shadow-lg active:scale-95 transition-transform" data-i18n="res-play-again">Jogar Novamente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WALLET MODAL -->
+    <div id="wallet-modal" class="fixed inset-0 z-[70] modal-base modal-hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 p-6 shadow-2xl relative">
+            <button onclick="window.app.toggleWalletModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+            <h2 class="text-xl font-display text-white uppercase text-center mb-6" data-i18n="mod-wallet-title">Carteira Digital</h2>
+            
+            <div class="bg-slate-800 p-4 rounded-xl mb-6 text-center border border-slate-700">
+                <div class="text-xs text-slate-400 uppercase" data-i18n="mod-wallet-balance">Saldo Disponível</div>
+                <div class="text-3xl font-mono font-bold text-yellow-400 coin-icon mt-2" id="wallet-balance-display">1000 RC</div>
+                <div id="wallet-usd-estimate" class="text-[10px] text-slate-500 mt-1">≈ $10.00 USD</div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-[10px] text-slate-500 font-black uppercase mb-3 tracking-widest">Escolha a Rede para Depósito</h3>
+                <div class="grid grid-cols-3 gap-2 mb-4">
+                    <button onclick="window.app.setWalletNetwork('arbitrum')" id="net-arbitrum" class="network-btn bg-slate-800 border border-yellow-500/50 rounded-lg py-2 text-[10px] font-bold transition-all">USDC<br>Arbitrum</button>
+                    <button onclick="window.app.setWalletNetwork('polygon')" id="net-polygon" class="network-btn bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] font-bold transition-all">USDT<br>Polygon</button>
+                    <button onclick="window.app.setWalletNetwork('bep20')" id="net-bep20" class="network-btn bg-slate-800 border border-slate-700 rounded-lg py-2 text-[10px] font-bold transition-all">USDT<br>BEP-20</button>
+                </div>
+
+                <div id="deposit-address-container" class="bg-black/50 p-4 rounded-xl border border-slate-800 text-center">
+                    <div id="wallet-qrcode" class="bg-white p-2 rounded-lg inline-block mb-3"></div>
+                    <div class="text-[10px] text-slate-500 mb-1 uppercase font-bold">Endereço de Depósito</div>
+                    <div id="wallet-address" class="text-[10px] font-mono text-slate-300 break-all bg-slate-900 p-2 rounded border border-slate-800">0x...</div>
+                    <button onclick="window.app.copyWalletAddress()" class="mt-2 text-[10px] text-yellow-500 font-bold uppercase"><i class="fas fa-copy mr-1"></i>Copiar Endereço</button>
+                </div>
+            </div>
+
+            <div class="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-xl mb-6">
+                <p class="text-[10px] text-yellow-200 leading-tight">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    <b>Conversão Fixa:</b> $1.00 USD = 100 RC. O saldo será creditado após 1 confirmação na rede.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="window.app.simDeposit()" class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold transition-colors text-sm">
+                    <i class="fas fa-bolt mr-2"></i>Simular $10
+                </button>
+                <button onclick="alert(window.app.t('sys-withdraw-soon'))" class="bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-colors text-sm">
+                    <i class="fas fa-arrow-up mr-2"></i>Sacar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RANK MODAL -->
+    <div id="rank-modal" class="fixed inset-0 z-[60] modal-base modal-hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-slate-900 w-full max-w-md h-[80vh] rounded-3xl border border-slate-700 flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
+                <h2 class="text-xl font-display text-yellow-500 uppercase" data-i18n="mod-rank-title">Histórico</h2>
+                <button onclick="window.app.toggleRankModal()" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <div class="bg-slate-800 p-3 rounded-xl text-center border border-slate-700"><div class="text-[10px] text-slate-400 uppercase font-bold" data-i18n="mod-rank-matches">Jogos</div><div id="stat-matches" class="text-xl font-bold text-white">0</div></div>
+                    <div class="bg-slate-800 p-3 rounded-xl text-center border border-slate-700"><div class="text-[10px] text-slate-400 uppercase font-bold" data-i18n="mod-rank-wins">Vitórias</div><div id="stat-wins" class="text-xl font-bold text-green-400">0</div></div>
+                    <div class="bg-slate-800 p-3 rounded-xl text-center border border-slate-700"><div class="text-[10px] text-slate-400 uppercase font-bold" data-i18n="mod-rank-profit">Lucro Recente</div><div id="stat-rate" class="text-xl font-bold text-yellow-400">0 RC</div></div>
+                </div>
+                <div id="history-list" class="flex flex-col gap-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="fixed inset-0 z-[70] modal-base modal-hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 p-6 shadow-2xl">
+            <h2 class="text-xl font-display text-white uppercase text-center mb-6" data-i18n="mod-settings-title">Configurações</h2>
+            
+            <div class="flex items-center justify-between mb-4 bg-slate-800 p-4 rounded-xl">
+                <span class="text-slate-300 font-bold"><i class="fas fa-volume-up mr-2"></i><span data-i18n="mod-settings-sound">Sons</span></span>
+                <button id="btn-sound-toggle" onclick="window.app.toggleSound()" class="w-12 h-6 bg-green-500 rounded-full relative transition-colors duration-300"><div class="w-5 h-5 bg-white rounded-full absolute top-0.5 left-6 transition-all duration-300 shadow-md"></div></button>
+            </div>
+
+            <div class="mb-6 bg-slate-800 p-4 rounded-xl">
+                <label class="block text-xs text-slate-500 font-bold uppercase mb-2" data-i18n="mod-settings-lang">Idioma</label>
+                <select id="settings-lang-select" onchange="window.app.setLang(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500">
+                    <option value="pt-BR">Português (Brasil)</option>
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                </select>
+            </div>
+
+            <button onclick="window.app.clearData()" class="w-full py-3 bg-red-900/50 border border-red-700 text-red-400 font-bold rounded-xl mb-3 hover:bg-red-900 transition-colors"><i class="fas fa-trash mr-2"></i><span data-i18n="mod-settings-reset">Resetar Conta</span></button>
+            <button onclick="window.app.logout()" class="w-full py-3 bg-slate-700 text-white font-bold rounded-xl mb-3"><i class="fas fa-sign-out-alt mr-2"></i>Logout</button>
+            <button onclick="window.app.toggleSettingsModal()" class="w-full py-3 bg-slate-800 text-white font-bold rounded-xl" data-i18n="mod-settings-close">Fechar</button>
+        </div>
+    </div>
+
+    <!-- CHALLENGE SHARE MODAL -->
+    <div id="share-modal" class="fixed inset-0 z-[80] modal-base modal-hidden bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 p-6 shadow-2xl relative text-center">
+            <button onclick="window.app.toggleShareModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+            <h2 class="text-xl font-display text-white uppercase mb-2" data-i18n="mod-share-title">DESAFIAR OPONENTE</h2>
+            <p class="text-xs text-slate-500 mb-6" data-i18n="mod-share-subtitle">Envie este QR Code ou Link para um amigo</p>
+            
+            <div id="qrcode-container" class="bg-white p-4 rounded-2xl inline-block mb-6 shadow-lg shadow-white/5"></div>
+            
+            <div class="flex flex-col gap-3">
+                <button onclick="window.app.copyChallengeLink()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2">
+                    <i class="fas fa-link"></i>
+                    <span id="btn-copy-text" data-i18n="mod-share-copy">Copiar Link</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHALLENGE RECEIVED MODAL -->
+    <div id="challenge-modal" class="fixed inset-0 z-[90] modal-base modal-hidden bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4">
+        <div class="bg-slate-900 w-full max-w-sm rounded-3xl border-2 border-yellow-500 p-8 shadow-[0_0_50px_rgba(234,179,8,0.3)] text-center">
+            <div class="text-6xl mb-4">⚔️</div>
+            <h2 class="text-2xl font-display text-yellow-500 uppercase mb-2" data-i18n="mod-share-challenge-received">DESAFIO RECEBIDO!</h2>
+            <p class="text-slate-300 mb-6"><span data-i18n="mod-share-challenge-desc">Você foi desafiado por</span> <b id="challenger-name" class="text-white">---</b></p>
+            
+            <div id="challenge-preview" class="mb-8 flex justify-center items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
+                <div id="challenge-avatar" class="w-24 h-24"></div>
+                <div class="text-left">
+                    <div id="challenge-el-name" class="font-display text-lg text-white">---</div>
+                    <div id="challenge-stats" class="text-[10px] text-slate-400 font-mono">---</div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <button onclick="window.app.acceptChallenge()" class="w-full py-4 bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg animate-pulse" data-i18n="mod-share-accept">ACEITAR DESAFIO</button>
+                <button onclick="window.app.toggleChallengeModal()" class="w-full py-3 text-slate-500 font-bold hover:text-slate-300 transition-all" data-i18n="mod-share-ignore">IGNORAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP ENTRY -->
+    <script>
+        // Pre-initialize window.app to prevent errors before module loads
+        window.app = {
+            t: (k) => k,
+            setLang: () => {},
+            handleLogin: () => {},
+            handleRegister: () => {},
+            showRegister: () => {},
+            showLogin: () => {},
+            isReady: false
+        };
+
+        // Safety check for module loading
+        setTimeout(() => {
+            if (!window.app.isReady) {
+                console.error("Critical Error: Application modules failed to load.");
+                alert("Erro Crítico: O sistema não foi carregado corretamente. Verifique o console para detalhes.\nCritical Error: System failed to load.");
+            }
+        }, 3000);
+    </script>
+    <script type="module">
+        import { state, ELEMENTS, COLORS } from './js/state.js';
+        import { Auth } from './js/auth.js';
+        import i18n from './js/i18n.js';
+        import { EconomyService } from './js/economy.js';
+        import { ReferralService } from './js/referral.js';
+        import { MarketplaceService, AuctionEngine } from './js/marketplace.js';
+        import { MissionService } from './js/missions.js';
+        import { TournamentService } from './js/tournament.js';
+        import { TeamService } from './js/team.js';
+        import { AudioEngine } from './js/audio.js';
+        import { renderAvatar } from './js/renderer.js';
+        import { 
+            updateBalanceUI, 
+            updateSettingsUI, 
+            updateRankUI, 
+            updateLeaderboardUI,
+            toggleModal 
+        } from './js/ui.js';
+        import { 
+            selectBet, 
+            checkBalanceAndStart, 
+            resetGame,
+            generateChallengeLink,
+            parseChallenge,
+            startChallengeBattle,
+            handleSkillClick,
+            handleItemClick,
+            toggleItemMenu,
+            startTournament,
+            startTournamentMatch
+        } from './js/game.js';
+
+        // Expose necessary functions to window for onclick handlers
+        Object.assign(window.app, {
+            isReady: true,
+            handleSkillClick,
+            handleItemClick,
+            toggleItemMenu,
+            startTournament,
+            startTournamentMatch,
+            t: (key) => i18n.t(key),
+            setLang: (lang) => {
+                i18n.setLanguage(lang);
+                state.gameData.settings.lang = lang;
+                state.save();
+                updateSettingsUI();
+                document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('border-yellow-500', 'bg-white/10'));
+                document.getElementById(`lang-${lang}`)?.classList.add('border-yellow-500', 'bg-white/10');
+            },
+            showRegister: () => Auth.showRegister(),
+            showLogin: () => Auth.showLogin(),
+            handleRegister: async () => {
+                const username = document.getElementById('reg-username').value;
+                const email = document.getElementById('reg-email').value;
+                const password = document.getElementById('reg-password').value;
+                const lang = state.gameData.settings.lang || 'pt-BR';
+
+                if (!username || !email || !password) {
+                    alert("Preencha todos os campos!");
+                    return;
+                }
+
+                const res = await Auth.register(email, password, username, lang);
+                if (res.success) {
+                    initGameUI();
+                } else {
+                    alert("Erro ao cadastrar: " + res.error);
+                }
+            },
+            handleLogin: async () => {
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                
+                if (!email || !password) {
+                    alert("Preencha todos os campos!");
+                    return;
+                }
+
+                const res = await Auth.login(email, password);
+                if (res.success) {
+                    initGameUI();
+                    checkUrlChallenge();
+                } else {
+                    alert("Erro ao entrar: " + res.error);
+                }
+            },
+            handleGuestLogin: async () => {
+                const res = await Auth.loginAsGuest();
+                if (res.success) {
+                    initGameUI();
+                }
+            },
+            handleGoogleLogin: async () => {
+                const res = await Auth.loginWithGoogle();
+                if (!res.success) {
+                    alert("Erro ao entrar com Google: " + res.error);
+                }
+            },
+            logout: () => Auth.logout(),
+            setWalletNetwork: (net) => {
+                const addresses = {
+                    arbitrum: '0xArbi' + Math.random().toString(16).slice(2, 10),
+                    polygon: '0xPoly' + Math.random().toString(16).slice(2, 10),
+                    bep20: '0xBEP2' + Math.random().toString(16).slice(2, 10)
+                };
+                document.querySelectorAll('.network-btn').forEach(b => b.classList.replace('border-yellow-500/50', 'border-slate-700'));
+                document.getElementById(`net-${net}`).classList.replace('border-slate-700', 'border-yellow-500/50');
+                
+                const addr = addresses[net];
+                document.getElementById('wallet-address').innerText = addr;
+                
+                const container = document.getElementById('wallet-qrcode');
+                container.innerHTML = '';
+                new QRCode(container, { text: addr, width: 100, height: 100 });
+                AudioEngine.playClick();
+            },
+            copyWalletAddress: () => {
+                const addr = document.getElementById('wallet-address').innerText;
+                navigator.clipboard.writeText(addr).then(() => alert("Endereço copiado!"));
+            },
+            toggleWalletModal: () => { 
+                AudioEngine.playClick(); 
+                toggleModal('wallet-modal'); 
+                if (!document.getElementById('wallet-modal').classList.contains('modal-hidden')) {
+                    window.app.setWalletNetwork('arbitrum');
+                }
+            },
+            toggleSettingsModal: () => { AudioEngine.playClick(); toggleModal('settings-modal'); },
+            toggleRankModal: () => { AudioEngine.playClick(); toggleModal('rank-modal'); },
+            toggleInfo: () => { AudioEngine.playClick(); document.getElementById('counter-info').classList.toggle('hidden'); },
+            toggleSound: () => {
+                state.gameData.settings.mute = !state.gameData.settings.mute;
+                AudioEngine.isMuted = state.gameData.settings.mute;
+                state.save();
+                updateSettingsUI();
+            },
+            clearData: () => {
+                if (confirm(i18n.t('sys-reset-confirm'))) {
+                    state.reset();
+                    location.reload();
+                }
+            },
+            simDeposit: () => {
+                const usdAmount = 10;
+                const rcAmount = EconomyService.usdToRC(usdAmount);
+                state.gameData.balance += rcAmount;
+                state.save();
+                alert(`Simulação: Depósito de $${usdAmount}.00 USD confirmado! +${rcAmount} RC adicionados.`);
+                updateBalanceUI();
+                toggleModal('wallet-modal');
+            },
+            showScreen: (screenId) => {
+                const screens = ['selection', 'shop', 'inventory', 'missions', 'tournament', 'referral', 'leaderboard', 'battle'];
+                screens.forEach(id => {
+                    const el = document.getElementById(`screen-${id}`);
+                    if (el) el.classList.add('hidden');
+                    
+                    const nav = document.getElementById(`nav-${id}`);
+                    if (nav) nav.classList.replace('text-yellow-500', 'text-slate-500');
+                });
+                
+                document.getElementById(`screen-${screenId}`).classList.remove('hidden');
+                const nav = document.getElementById(`nav-${screenId}`);
+                if (nav) nav.classList.replace('text-slate-500', 'text-yellow-500');
+                
+                if (screenId === 'shop') updateShopUI();
+                if (screenId === 'inventory') updateInventoryUI();
+                if (screenId === 'missions') updateMissionsUI();
+                if (screenId === 'tournament') updateTournamentUI();
+                if (screenId === 'referral') updateReferralUI();
+                if (screenId === 'leaderboard') updateLeaderboardUI();
+                
+                AudioEngine.playClick();
+            },
+            buyRooster: async (el, col, price) => {
+                const res = await MarketplaceService.buyRooster(el, col, price);
+                if (res.success) {
+                    alert(`Galo ${el} adquirido com sucesso!`);
+                    updateBalanceUI();
+                    updateShopUI();
+                } else {
+                    alert("Erro: " + res.error);
+                }
+            },
+            buyItem: async (id, price) => {
+                const res = await MarketplaceService.buyItem(id, price);
+                if (res.success) {
+                    alert(`Item adquirido com sucesso!`);
+                    updateBalanceUI();
+                    updateShopUI();
+                } else {
+                    alert("Erro: " + res.error);
+                }
+            },
+            bid: async (id, amount) => {
+                const res = await AuctionEngine.bid(id, amount);
+                if (res.success) {
+                    alert("Compra realizada com sucesso!");
+                    updateBalanceUI();
+                    updateShopUI();
+                } else {
+                    alert("Erro ao comprar: " + res.error);
+                }
+            },
+            copyReferralLink: () => {
+                const link = ReferralService.getReferralLink();
+                navigator.clipboard.writeText(link).then(() => alert("Link de indicação copiado!"));
+            },
+            setMode: (mode) => {
+                state.gameMode = mode;
+                document.querySelectorAll('[id^="mode-"]').forEach(b => {
+                    b.classList.remove('bg-yellow-500', 'text-black');
+                    b.classList.add('text-slate-500');
+                });
+                document.getElementById(`mode-${mode}`).classList.add('bg-yellow-500', 'text-black');
+                document.getElementById(`mode-${mode}`).classList.remove('text-slate-500');
+                
+                const btnStart = document.getElementById('btn-start');
+                const instructions = document.getElementById('mode-instructions');
+
+                if (mode === '3v3') {
+                    instructions.classList.remove('hidden');
+                    const team = TeamService.getTeamRoosters();
+                    if (team.length < 3) {
+                        btnStart.disabled = true;
+                        btnStart.innerText = `FORME SEU TIME (${team.length}/3)`;
+                        btnStart.classList.add('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+                        btnStart.classList.remove('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'animate-pulse');
+                    } else {
+                        btnStart.disabled = false;
+                        btnStart.innerText = 'INICIAR BATALHA 3v3';
+                        btnStart.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+                        btnStart.classList.add('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'animate-pulse');
+                    }
+                } else {
+                    instructions.classList.add('hidden');
+                    updatePreview();
+                }
+                AudioEngine.playClick();
+            },
+            toggleTeamMember: (id) => {
+                if (state.gameData.teams.active.includes(id)) {
+                    TeamService.removeFromTeam(id);
+                } else {
+                    const res = TeamService.addToTeam(id);
+                    if (!res.success) alert(res.error);
+                }
+                updateInventoryUI();
+                AudioEngine.playClick();
+            },
+            sellRooster: async (id) => {
+                const price = prompt("Por quanto deseja vender este galo (RC)?");
+                if (price && !isNaN(price)) {
+                    try {
+                        const { supabase } = await import('./js/supabase.js');
+                        const { error } = await supabase
+                            .from('roosters')
+                            .update({ price: parseInt(price), in_team: false })
+                            .eq('id', id);
+                        
+                        if (error) throw error;
+                        
+                        alert("Galo colocado à venda no leilão!");
+                        // Remove from active team if it was there
+                        TeamService.removeFromTeam(id);
+                        updateInventoryUI();
+                    } catch (err) {
+                        alert("Erro ao vender: " + err.message);
+                    }
+                }
+            },
+            selectElement: (el) => {
+                AudioEngine.init(); AudioEngine.playClick();
+                state.player.element = el;
+                document.querySelectorAll('[id^="btn-"]').forEach(b => { 
+                    if (!b.id.includes('bet')) { 
+                        b.classList.remove('btn-glass-selected', 'border-yellow-500'); 
+                        b.classList.add('opacity-70'); 
+                    }
+                });
+                const btn = document.getElementById(`btn-${el}`);
+                btn.classList.add('btn-glass-selected', 'border-yellow-500');
+                btn.classList.remove('opacity-70');
+                updatePreview();
+            },
+            selectColor: (col) => {
+                AudioEngine.init(); AudioEngine.playClick();
+                state.player.color = col;
+                document.querySelectorAll('[id^="btn-color-"]').forEach(b => { 
+                    b.classList.remove('ring-4', 'ring-white', 'scale-110'); 
+                    b.classList.add('opacity-60'); 
+                });
+                const btn = document.getElementById(`btn-color-${col}`);
+                btn.classList.add('ring-4', 'ring-white', 'scale-110');
+                btn.classList.remove('opacity-60');
+                updatePreview();
+            },
+            selectBet,
+            checkBalanceAndStart,
+            resetGame,
+
+            // Challenge Methods
+            showChallengeModal: () => {
+                const link = generateChallengeLink();
+                if (!link) {
+                    alert("Selecione seu Galo primeiro!");
+                    return;
+                }
+                
+                const container = document.getElementById('qrcode-container');
+                container.innerHTML = '';
+                new QRCode(container, {
+                    text: link,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                window.app.toggleShareModal();
+            },
+            toggleShareModal: () => {
+                AudioEngine.playClick();
+                toggleModal('share-modal');
+                const btn = document.getElementById('btn-copy-text');
+                btn.innerText = i18n.t('mod-share-copy');
+            },
+            copyChallengeLink: () => {
+                const link = generateChallengeLink();
+                navigator.clipboard.writeText(link).then(() => {
+                    const btn = document.getElementById('btn-copy-text');
+                    btn.innerText = i18n.t('mod-share-copied');
+                    setTimeout(() => {
+                        btn.innerText = i18n.t('mod-share-copy');
+                    }, 2000);
+                });
+            },
+            toggleChallengeModal: () => {
+                toggleModal('challenge-modal');
+            },
+            acceptChallenge: () => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const challenge = urlParams.get('challenge');
+                const challengerData = parseChallenge(challenge);
+                
+                if (challengerData) {
+                    window.app.toggleChallengeModal();
+                    startChallengeBattle(challengerData);
+                }
+            }
+        });
+
+        function updatePreview() {
+            if (state.player.element) {
+                renderAvatar('selection-preview-avatar', state.player.element, state.player.color);
+                const elData = ELEMENTS[state.player.element];
+                document.getElementById('preview-name').innerText = i18n.t(`el-${elData.id}`);
+                document.getElementById('preview-stat-base').innerText = `FORÇA: ${elData.base}`;
+                document.getElementById('preview-stat-type').innerText = `TIPO: ${elData.desc}`;
+            }
+            if (state.player.element && state.player.color) {
+                const btn = document.getElementById('btn-start');
+                btn.disabled = false;
+                btn.innerText = i18n.t('sel-search');
+                btn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed', 'border-slate-950');
+                btn.classList.add('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'border-yellow-700', 'animate-pulse');
+            }
+        }
+
+        function initGameUI() {
+            updateBalanceUI();
+            updateSettingsUI();
+            updateRankUI();
+            updateTournamentUI();
+            i18n.updateUI();
+            selectBet(100);
+            document.getElementById('bottom-nav').classList.remove('hidden');
+        }
+
+        async function updateShopUI() {
+            const combatList = document.getElementById('combat-items-list');
+            combatList.innerHTML = '';
+            MarketplaceService.getCombatItems().forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center gap-2 shadow-xl';
+                div.innerHTML = `
+                    <div class="text-3xl mb-2">${item.icon}</div>
+                    <div class="text-[9px] font-black text-white uppercase text-center">${item.name}</div>
+                    <div class="text-sm font-mono font-bold text-yellow-400">${item.price} RC</div>
+                    <button onclick="window.app.buyItem('${item.id}', ${item.price})" class="w-full py-2 bg-slate-800 text-yellow-500 text-[10px] font-black uppercase rounded-lg border border-yellow-500/30 hover:bg-slate-700">Comprar</button>
+                `;
+                combatList.appendChild(div);
+            });
+
+            const shopList = document.getElementById('shop-list');
+            shopList.innerHTML = '';
+            MarketplaceService.getShopItems().forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center gap-2 shadow-xl';
+                div.innerHTML = `
+                    <div class="w-20 h-20" id="shop-item-${item.id}"></div>
+                    <div class="text-xs font-black text-white uppercase">${i18n.t(`el-${item.element}`)}</div>
+                    <div class="text-lg font-mono font-bold text-yellow-400">${item.price} RC</div>
+                    <button onclick="window.app.buyRooster('${item.element}', '${item.color}', ${item.price})" class="w-full py-2 bg-yellow-500 text-black text-[10px] font-black uppercase rounded-lg">Comprar</button>
+                `;
+                shopList.appendChild(div);
+                renderAvatar(`shop-item-${item.id}`, item.element, item.color);
+            });
+
+            const auctionList = document.getElementById('auction-list');
+            auctionList.innerHTML = '<div class="p-10 text-center text-slate-500 animate-pulse">Buscando leilões reais...</div>';
+            
+            const items = await AuctionEngine.getAuctionItems();
+            auctionList.innerHTML = '';
+            
+            if (items.length === 0) {
+                auctionList.innerHTML = '<div class="p-10 text-center text-slate-600 font-bold uppercase tracking-widest border-2 border-dashed border-slate-800 rounded-2xl">Nenhum leilão ativo no momento.</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-slate-900 border border-yellow-500/30 rounded-2xl p-4 flex items-center gap-4 shadow-xl';
+                div.innerHTML = `
+                    <div class="w-16 h-16" id="auc-item-${item.id}"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-black text-white uppercase">Galo Nível ${item.rooster.level}</div>
+                        <div class="text-[10px] text-slate-500">DNA: ${item.rooster.dna}</div>
+                        <div class="text-sm font-mono font-bold text-yellow-400 mt-1">${item.currentPrice} RC</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[8px] text-green-500 font-bold uppercase mb-1">Status</div>
+                        <div class="text-xs font-mono text-white">${item.timeLeft}</div>
+                        <button onclick="window.app.bid('${item.id}', ${item.currentPrice})" class="mt-2 px-4 py-1 bg-slate-800 text-yellow-500 text-[10px] font-black uppercase rounded-lg border border-yellow-500/50">Comprar</button>
+                    </div>
+                `;
+                auctionList.appendChild(div);
+                renderAvatar(`auc-item-${item.id}`, item.rooster.element, item.rooster.color);
+            });
+        }
+
+        function updateInventoryUI() {
+            const invList = document.getElementById('inventory-list');
+            invList.innerHTML = '';
+            if (state.gameData.inventory.roosters.length === 0) {
+                invList.innerHTML = '<div class="col-span-full text-center py-10 text-slate-500 font-bold uppercase tracking-widest">Sua mochila está vazia.<br>Visite a loja!</div>';
+                return;
+            }
+            state.gameData.inventory.roosters.forEach(gal => {
+                const inTeam = state.gameData.teams.active.includes(gal.id);
+                const div = document.createElement('div');
+                div.className = `bg-slate-900 border ${inTeam ? 'border-yellow-500/50 shadow-yellow-500/10' : 'border-slate-800'} rounded-2xl p-4 flex items-center gap-4 shadow-xl transition-all`;
+                div.innerHTML = `
+                    <div class="w-16 h-16" id="inv-item-${gal.id}"></div>
+                    <div class="flex-1">
+                        <div class="text-xs font-black text-white uppercase">${i18n.t(`el-${gal.element}`)}</div>
+                        <div class="text-[10px] text-slate-500">Nível ${gal.level} | XP ${gal.xp}</div>
+                        <div class="flex gap-2 mt-2">
+                            <button onclick="window.app.toggleTeamMember('${gal.id}')" class="px-3 py-1 ${inTeam ? 'bg-red-900/50 text-red-400' : 'bg-yellow-500 text-black'} text-[8px] font-black uppercase rounded-lg transition-all">
+                                ${inTeam ? 'Remover do Time' : 'Adicionar ao Time'}
+                            </button>
+                            <button onclick="window.app.sellRooster('${gal.id}')" class="px-3 py-1 bg-slate-800 text-slate-400 text-[8px] font-black uppercase rounded-lg border border-slate-700">
+                                Vender
+                            </button>
+                        </div>
+                    </div>
+                `;
+                invList.appendChild(div);
+                renderAvatar(`inv-item-${gal.id}`, gal.element, gal.color);
+            });
+        }
+
+        function updateReferralUI() {
+            const stats = ReferralService.getStats();
+            document.getElementById('ref-link-input').value = ReferralService.getReferralLink();
+            document.getElementById('ref-total-earnings').innerText = `${stats.totalEarnings} RC`;
+            document.getElementById('ref-my-code').innerText = stats.code || ReferralService.generateCode();
+            
+            const levelsList = document.getElementById('ref-levels-list');
+            levelsList.innerHTML = '';
+            const labels = ['1º Nível (5%)', '2º Nível (2%)', '3º Nível (1%)', '4º Nível (1%)', '5º Nível (1%)'];
+            stats.networkCount.forEach((count, i) => {
+                const div = document.createElement('div');
+                div.className = 'bg-slate-900/50 border border-slate-800 rounded-xl p-3 flex justify-between items-center';
+                div.innerHTML = `
+                    <span class="text-[10px] text-slate-400 font-bold uppercase">${labels[i]}</span>
+                    <span class="text-sm font-mono font-bold text-white">${count} usuários</span>
+                `;
+                levelsList.appendChild(div);
+            });
+        }
+
+        function updateMissionsUI() {
+            const list = document.getElementById('missions-list');
+            list.innerHTML = '';
+            
+            const missions = MissionService.getDailyMissions();
+            const todayMissions = state.gameData.missions || { progress: {}, completed: [] };
+            const progress = todayMissions.progress || {};
+            const completed = todayMissions.completed || [];
+
+            missions.forEach(m => {
+                const isDone = completed.includes(m.id);
+                const current = progress[m.type] || 0;
+                const percent = Math.min(100, (current / m.target) * 100);
+                
+                const div = document.createElement('div');
+                div.className = `bg-slate-900 border ${isDone ? 'border-green-500/50 bg-green-500/5' : 'border-slate-800'} rounded-3xl p-5 shadow-xl transition-all`;
+                div.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex flex-col">
+                            <span class="text-xs font-black text-white uppercase tracking-tighter">${m.desc}</span>
+                            <span class="text-[10px] text-slate-500 font-bold uppercase mt-1">Prêmio: <span class="text-yellow-500">${m.reward} RC</span> + <span class="text-blue-400">${m.xp} XP</span></span>
+                        </div>
+                        ${isDone ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>' : `<span class="text-[10px] font-mono font-bold text-slate-400">${current}/${m.target}</span>`}
+                    </div>
+                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r ${isDone ? 'from-green-500 to-emerald-400' : 'from-yellow-500 to-orange-400'} transition-all duration-500" style="width: ${percent}%"></div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function updateTournamentUI() {
+            const bracket = document.getElementById('tournament-bracket');
+            const t = state.gameData.tournament;
+            
+            if (!t || !t.active) {
+                bracket.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-64 text-slate-600 uppercase font-black tracking-widest text-center">
+                        <i class="fas fa-trophy text-4xl mb-4 opacity-20"></i>
+                        Nenhum torneio ativo.<br>Pague a taxa para começar!
+                    </div>
+                `;
+                document.getElementById('btn-start-tournament').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('btn-start-tournament').classList.add('hidden');
+            bracket.innerHTML = '';
+            
+            const rounds = ['QUARTAS', 'SEMIFINAL', 'FINAL'];
+            const container = document.createElement('div');
+            container.className = "flex gap-8 min-w-max h-full items-center py-4";
+
+            t.bracket.forEach((participants, rIdx) => {
+                const roundCol = document.createElement('div');
+                roundCol.className = "flex flex-col gap-4 justify-around h-full";
+                roundCol.innerHTML = `<div class="text-[8px] font-black text-slate-500 text-center mb-2">${rounds[rIdx]}</div>`;
+
+                for (let i = 0; i < participants.length; i += 2) {
+                    const match = document.createElement('div');
+                    match.className = "flex flex-col gap-1 bg-slate-800/50 p-2 rounded-xl border border-slate-700 min-w-[120px]";
+                    
+                    [participants[i], participants[i+1]].forEach(p => {
+                        const pDiv = document.createElement('div');
+                        if (!p) {
+                            pDiv.className = "text-[10px] text-slate-600 italic";
+                            pDiv.innerText = "Aguardando...";
+                        } else {
+                            const isNextMatch = t.round === rIdx && (p.id === 'player' || (participants[i]?.id === 'player' || participants[i+1]?.id === 'player'));
+                            pDiv.className = `flex justify-between items-center px-2 py-1 rounded ${p.isEliminated ? 'opacity-30 grayscale' : (p.isPlayer ? 'bg-yellow-500/20 text-yellow-500 font-bold' : 'text-white')}`;
+                            const elIcon = ELEMENTS[p.element].icon;
+                            pDiv.innerHTML = `
+                                <div class="flex items-center gap-1">
+                                    <span class="text-[8px]">${elIcon}</span>
+                                    <span class="text-[9px] uppercase truncate max-w-[70px]">${p.name}</span>
+                                </div>
+                                <span class="text-[8px] font-mono opacity-50">Lvl ${p.level}</span>
+                            `;
+                            if (isNextMatch && !p.isEliminated && p.id === 'player') {
+                                pDiv.classList.add('ring-1', 'ring-yellow-500', 'animate-pulse');
+                                pDiv.onclick = () => window.app.startTournamentMatch();
+                            }
+                        }
+                        match.appendChild(pDiv);
+                    });
+                    roundCol.appendChild(match);
+                }
+                container.appendChild(roundCol);
+            });
+
+            bracket.appendChild(container);
+        }
+
+        // Boot
+        async function boot() {
+            console.log("RINHA EVOLUTION: Booting...");
+            
+            // Define o idioma inicial antes de qualquer coisa
+            const currentLang = state.gameData.settings.lang || 'pt-BR';
+            window.app.setLang(currentLang);
+            
+            // Verifica a sessão
+            const isLogged = await Auth.checkSession();
+            
+            if (isLogged) {
+                // Se logado, inicializa a UI do jogo e as missões
+                MissionService.updateProgress('init', 0); 
+                initGameUI();
+                // Verifica se há um convite de desafio na URL
+                checkUrlChallenge();
+            } else {
+                // Se não logado, garante que a tela de login esteja visível
+                Auth.showLogin();
+            }
+            
+            window.app.isReady = true;
+            console.log("RINHA EVOLUTION: Ready!");
+        }
+
+        if (document.readyState === 'loading') {
+            window.addEventListener('DOMContentLoaded', boot);
+        } else {
+            boot();
+        }
+
+        function checkUrlChallenge() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const challenge = urlParams.get('challenge');
+            if (challenge) {
+                const challengerData = parseChallenge(challenge);
+                if (challengerData) {
+                    // Pre-render challenger avatar
+                    renderAvatar('challenge-avatar', challengerData.e, challengerData.c);
+                    document.getElementById('challenger-name').innerText = challengerData.n;
+                    document.getElementById('challenge-el-name').innerText = i18n.t(`el-${challengerData.e}`);
+                    document.getElementById('challenge-stats').innerText = `FORÇA: ${challengerData.b}`;
+                    
+                    setTimeout(() => {
+                        window.app.toggleChallengeModal();
+                    }, 1000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
