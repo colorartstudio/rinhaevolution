@@ -664,6 +664,50 @@
         </div>
 
         <div id="battle-stage" class="relative z-10 flex-1 flex flex-col justify-center items-center pb-20 w-full max-w-lg mx-auto opacity-0 transition-opacity duration-1000">
+            
+            <!-- BATTLE STATS CARDS (NEW) -->
+            <div class="w-full flex gap-3 px-4 mb-6 relative z-30">
+                <!-- Player Card -->
+                <div class="flex-1 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl">
+                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 text-center" data-i18n="res-you">VOCÊ</div>
+                    <div class="space-y-2 text-[10px] font-bold">
+                        <div class="flex justify-between border-b border-white/5 pb-1">
+                            <span class="text-slate-400">Base:</span>
+                            <span id="btl-p-base" class="text-white font-mono">100</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/5 pb-1">
+                            <span class="text-slate-400">Bonus:</span>
+                            <span id="btl-p-bonus" class="text-green-400 font-mono">+0%</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/5 pb-1">
+                            <span class="text-slate-400">2. Pintura:</span>
+                            <span id="btl-p-paint" class="text-slate-600 font-mono">-</span>
+                        </div>
+                    </div>
+                    <div id="btl-p-total" class="mt-4 text-3xl font-black text-green-400 text-center drop-shadow-[0_0_10px_rgba(74,222,128,0.3)]">100</div>
+                </div>
+
+                <!-- CPU Card -->
+                <div class="flex-1 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl">
+                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 text-center" data-i18n="res-cpu">CPU</div>
+                    <div class="space-y-2 text-[10px] font-bold">
+                        <div class="flex justify-between border-b border-white/5 pb-1">
+                            <span class="text-slate-400">Base:</span>
+                            <span id="btl-c-base" class="text-white font-mono">100</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/5 pb-1">
+                            <span class="text-slate-400">Bonus:</span>
+                            <span id="btl-c-bonus" class="text-green-400 font-mono">+0%</span>
+                        </div>
+                        <div class="flex justify-between border-b border-white/5 pb-1">
+                            <span class="text-slate-400">2. Pintura:</span>
+                            <span id="btl-c-paint" class="text-slate-600 font-mono">-</span>
+                        </div>
+                    </div>
+                    <div id="btl-c-total" class="mt-4 text-3xl font-black text-red-400 text-center drop-shadow-[0_0_10px_rgba(248,113,113,0.3)]">100</div>
+                </div>
+            </div>
+
             <!-- Time CPU -->
             <div id="cpu-team-container" class="w-full px-8 flex flex-col items-end mb-8 relative">
                 <div class="flex items-center gap-3 mb-1 w-full justify-end">

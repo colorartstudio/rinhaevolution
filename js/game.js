@@ -334,6 +334,26 @@ async function battleSequence() {
     updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
     updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max || 100);
 
+    // Engenharia Avançada: Cálculo de Atributos para os Cards Visuais
+    const arenaBonus = state.currentArena.bonus === pRooster.element ? 1.25 : 1;
+    const colorBonus = COLORS[pRooster.color]?.special ? 1.3 : 1;
+    const pTotal = Math.round(pRooster.atk * arenaBonus * colorBonus);
+
+    const cArenaBonus = state.currentArena.bonus === cRooster.element ? 1.25 : 1;
+    const cColorBonus = COLORS[cRooster.color]?.special ? 1.3 : 1;
+    const cTotal = Math.round(cRooster.atk * cArenaBonus * cColorBonus);
+
+    // Preencher Cards de Atributos
+    document.getElementById('btl-p-base').innerText = pRooster.atk;
+    document.getElementById('btl-p-bonus').innerText = arenaBonus > 1 ? '+25%' : '+0%';
+    document.getElementById('btl-p-paint').innerHTML = colorBonus > 1 ? '<span class="text-green-400">+30%</span>' : '-';
+    document.getElementById('btl-p-total').innerText = pTotal;
+
+    document.getElementById('btl-c-base').innerText = cRooster.atk;
+    document.getElementById('btl-c-bonus').innerText = cArenaBonus > 1 ? '+25%' : '+0%';
+    document.getElementById('btl-c-paint').innerHTML = cColorBonus > 1 ? '<span class="text-red-400">+30%</span>' : '-';
+    document.getElementById('btl-c-total').innerText = cTotal;
+
     let pHP = pRooster.hp_max;
     let cHP = cRooster.hp_max;
     
@@ -364,7 +384,7 @@ async function battleSequence() {
                 dmgC = Math.round(dmgC * cStatus.shield * (1 / cStatus.def));
                 cStatus.shield = 1;
 
-                pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(400);
+                pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(500);
                 cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
                 showFloatingText(cAv, `-${dmgC}`, 'right', false); 
                 updateHealth('c-hp-bar', (dmgC / cRooster.hp_max) * 100);
@@ -397,11 +417,11 @@ async function battleSequence() {
                 await sleep(1000);
             }
 
-            await sleep(500); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(800);
+            await sleep(800); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(1200);
         } else {
             showFloatingText(pAv, "ATORDUADO!", 'left', false);
             pStatus.stun = false;
-            await sleep(1200);
+            await sleep(1800);
         }
 
         if (cHP <= 0) break;
@@ -413,7 +433,7 @@ async function battleSequence() {
             updateHealth('c-hp-bar', (bDmg / cRooster.hp_max) * 100);
             showFloatingText(cAv, `-${bDmg} 🔥`, 'right', false);
             cStatus.burn--;
-            await sleep(1000);
+            await sleep(1200);
         }
 
         if (cHP <= 0) break;
@@ -432,7 +452,7 @@ async function battleSequence() {
             dmgP = Math.round(dmgP * pStatus.shield * (1 / pStatus.def));
             pStatus.shield = 1;
 
-            cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(400);
+            cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(500);
             pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
             showFloatingText(pAv, `-${dmgP}`, 'left', false); 
             updateHealth('p-hp-bar', (dmgP / pRooster.hp_max) * 100);
@@ -443,11 +463,11 @@ async function battleSequence() {
             if (cSkill.effect === 'shield') cStatus.shield = cSkill.value;
             if (cSkill.effect === 'def') cStatus.def = cSkill.value;
 
-            await sleep(500); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(800);
+            await sleep(800); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(1200);
         } else {
             showFloatingText(cAv, "ATORDUADO!", 'right', false);
             cStatus.stun = false;
-            await sleep(1200);
+            await sleep(1800);
         }
 
         // Apply Burn Player
@@ -457,22 +477,34 @@ async function battleSequence() {
             updateHealth('p-hp-bar', (bDmg / pRooster.hp_max) * 100);
             showFloatingText(pAv, `-${bDmg} 🔥`, 'left', false);
             pStatus.burn--;
-            await sleep(1000);
+            await sleep(1200);
         }
     }
 
     const playerWon = pHP > 0;
     
     if (playerWon) {
-        pAv.classList.add('anim-winner-l'); cAv.classList.add('anim-ko-r'); showDeadEyes(cAv); AudioEngine.playWin(); triggerHaptic('heavy');
+        pAv.classList.add('anim-winner-l'); 
+        cAv.classList.add('anim-ko-r', 'grayscale', 'opacity-60'); 
+        showDeadEyes(cAv); 
+        AudioEngine.playWin(); 
+        triggerHaptic('heavy');
     } else {
-        cAv.classList.add('anim-winner-r'); pAv.classList.add('anim-ko-l'); showDeadEyes(pAv); AudioEngine.playLoss(); triggerHaptic('heavy');
+        cAv.classList.add('anim-winner-r'); 
+        pAv.classList.add('anim-ko-l', 'grayscale', 'opacity-60'); 
+        showDeadEyes(pAv); 
+        AudioEngine.playLoss(); 
+        triggerHaptic('heavy');
     }
 
     saveMatchResult(playerWon, pRooster.element, pRooster.color);
-    await sleep(2000);
+    await sleep(3000); // 3 segundos para brilhar vencedor e KO perdedor
     
-    const report = { arena: i18n.t(`arena-${state.currentArena.id}`), p: { base: pRooster.atk, final: pHP }, c: { base: cRooster.atk, final: cHP } };
+    const report = { 
+        arena: i18n.t(`arena-${state.currentArena.id}`), 
+        p: { base: pRooster.atk, final: pTotal, arena: arenaBonus > 1, color: colorBonus > 1 }, 
+        c: { base: cRooster.atk, final: cTotal, arena: cArenaBonus > 1, color: cColorBonus > 1 } 
+    };
     showDetailedResult(playerWon, report);
 }
 
@@ -498,6 +530,25 @@ async function battleSequence3v3() {
         const pAv = document.getElementById(`player-avatar-${pIdx}`);
         const cAv = document.getElementById(`cpu-avatar-${cIdx}`);
 
+        // Atualizar Cards de Atributos para o Round Atual
+        const arenaBonus = state.currentArena.bonus === pGal.element ? 1.25 : 1;
+        const colorBonus = COLORS[pGal.color]?.special ? 1.3 : 1;
+        const pTotal = Math.round(pGal.atk * arenaBonus * colorBonus);
+
+        const cArenaBonus = state.currentArena.bonus === cGal.element ? 1.25 : 1;
+        const cColorBonus = COLORS[cGal.color]?.special ? 1.3 : 1;
+        const cTotal = Math.round(cGal.atk * cArenaBonus * cColorBonus);
+
+        document.getElementById('btl-p-base').innerText = pGal.atk;
+        document.getElementById('btl-p-bonus').innerText = arenaBonus > 1 ? '+25%' : '+0%';
+        document.getElementById('btl-p-paint').innerHTML = colorBonus > 1 ? '<span class="text-green-400">+30%</span>' : '-';
+        document.getElementById('btl-p-total').innerText = pTotal;
+
+        document.getElementById('btl-c-base').innerText = cGal.atk;
+        document.getElementById('btl-c-bonus').innerText = cArenaBonus > 1 ? '+25%' : '+0%';
+        document.getElementById('btl-c-paint').innerHTML = cColorBonus > 1 ? '<span class="text-red-400">+30%</span>' : '-';
+        document.getElementById('btl-c-total').innerText = cTotal;
+
         // Energy Regen
         pGal.energy = Math.min(pGal.energy_max || 100, pGal.energy + 20);
         cGal.energy = Math.min(cGal.energy_max || 100, cGal.energy + 20);
@@ -519,7 +570,7 @@ async function battleSequence3v3() {
                 showFloatingText(pAv, `+${heal}`, 'left', false);
             }
 
-            pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(400);
+            pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(500);
             cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
             showFloatingText(cAv, `-${dmgC}`, 'right', false); 
             updateHealth('c-hp-bar', (dmgC / 300) * 100);
@@ -540,7 +591,7 @@ async function battleSequence3v3() {
             await sleep(1500);
         }
 
-        await sleep(500); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(800);
+        await sleep(800); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(1200);
 
         if (cHP <= 0) break;
 
@@ -554,19 +605,47 @@ async function battleSequence3v3() {
 
         const dmgP = SkillService.calculateDamage(cGal.atk, cSkill.multiplier, cGal.level);
 
-        cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(400);
+        cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(500);
         pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
         showFloatingText(pAv, `-${dmgP}`, 'left', false); 
         updateHealth('p-hp-bar', (dmgP / 300) * 100);
         pHP -= dmgP;
-        await sleep(500); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(800);
+        await sleep(800); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(1200);
 
         if (pHP <= 0) break;
     }
 
     const playerWon = pHP > cHP;
-    if (playerWon) triggerHaptic('heavy');
+    if (playerWon) {
+        triggerHaptic('heavy');
+        // Adicionar efeito visual final
+        pTeam.forEach((r, idx) => {
+            const av = document.getElementById(`player-avatar-${idx}`);
+            if (av) av.classList.add('anim-winner-l');
+        });
+        cTeam.forEach((r, idx) => {
+            const av = document.getElementById(`cpu-avatar-${idx}`);
+            if (av) {
+                av.classList.add('anim-ko-r', 'grayscale', 'opacity-60');
+                showDeadEyes(av);
+            }
+        });
+    } else {
+        cTeam.forEach((r, idx) => {
+            const av = document.getElementById(`cpu-avatar-${idx}`);
+            if (av) av.classList.add('anim-winner-r');
+        });
+        pTeam.forEach((r, idx) => {
+            const av = document.getElementById(`player-avatar-${idx}`);
+            if (av) {
+                av.classList.add('anim-ko-l', 'grayscale', 'opacity-60');
+                showDeadEyes(av);
+            }
+        });
+    }
+
     saveMatchResult(playerWon, pTeam[0].element, pTeam[0].color);
+    await sleep(3000); // 3 segundos para brilhar vencedor e KO perdedor
     showFinalResult3v3(playerWon);
 }
 
