@@ -234,6 +234,11 @@ export class Auth {
             if (error) {
                 console.error("Erro retornado pelo Supabase OAuth:", error.status, error.message);
                 
+                if (error.message.includes("provider is not enabled")) {
+                    alert("❌ Provedor Google não está ativado no Supabase.\n\nComo arquiteto, recomendo ir em Authentication > Providers e ativar o Google com seu Client ID e Secret.");
+                    return { success: false, error: "Provedor desativado." };
+                }
+
                 if (error.status === 500 || error.message.includes("Database error")) {
                     throw new Error("Erro de servidor (500) ao processar login Google. Verifique se a Trigger de perfil está funcionando corretamente no Supabase.");
                 }

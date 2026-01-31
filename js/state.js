@@ -120,72 +120,90 @@ class State {
         if (!this.gameData.user || !this.gameData.user.id) return;
         
         console.log("Iniciando sincronização total com Supabase...");
+        
+        // Timeout de segurança para evitar travamento eterno
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Timeout na sincronização")), 8000)
+        );
+
         try {
-            const { supabase } = await import('./supabase.js');
-            
-            // 1. Buscar Profile
-            try {
-                const { data: profile, error: pError } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', this.gameData.user.id)
-                    .single();
+            const syncPromise = (async () => {
+                const { supabase } = await import('./supabase.js');
                 
-                if (pError) throw pError;
-                if (profile) {
-                    this.gameData.balance = profile.balance;
-                    this.gameData.wins = profile.wins;
-                    this.gameData.losses = profile.losses;
-                    this.gameData.settings = profile.settings || this.gameData.settings;
-                    if (profile.referral_code) this.gameData.referral.code = profile.referral_code;
-                    console.log("Profile sincronizado.");
+                // 1. Buscar Profile
+                console.log("Buscando Profile...");
+                try {
+                    const { data: profile, error: pError } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', this.gameData.user.id)
+                        .single();
+                    
+                    if (pError) throw pError;
+                    if (profile) {
+                        this.gameData.balance = profile.balance;
+                        this.gameData.wins = profile.wins;
+                        this.gameData.losses = profile.losses;
+                        this.gameData.settings = profile.settings || this.gameData.settings;
+                        if (profile.referral_code) this.gameData.referral.code = profile.referral_code;
+                        console.log("Profile sincronizado.");
+                    }
+                } catch (e) {
+                    console.warn("Erro ao sincronizar profile (tabela pode não existir ou conexão lenta):", e.message);
                 }
-            } catch (e) {
-                console.warn("Erro ao sincronizar profile (tabela pode não existir):", e.message);
-            }
 
-            // 2. Buscar Galos (Inventory)
-            try {
-                const { data: roosters, error: rError } = await supabase
-                    .from('roosters')
-                    .select('*')
-                    .eq('owner_id', this.gameData.user.id);
-                
-                if (rError) throw rError;
-                if (roosters) {
-                    this.gameData.inventory.roosters = roosters;
-                    this.gameData.teams.active = roosters
-                        .filter(r => r.in_team)
-                        .map(r => r.id);
-                    console.log(`${roosters.length} galos sincronizados.`);
+                // 2. Buscar Galos (Inventory)
+                console.log("Buscando Galos...");
+                try {
+                    const { data: roosters, error: rError } = await supabase
+                        .from('roosters')
+                        .select('*')
+                        .eq('owner_id', this.gameData.user.id);
+                    
+                    if (rError) throw rError;
+                    if (roosters) {
+                        this.gameData.inventory.roosters = roosters;
+                        this.gameData.teams.active = roosters
+                            .filter(r => r.in_team)
+                            .map(r => r.id);
+                        console.log(`${roosters.length} galos sincronizados.`);
+                    }
+                } catch (e) {
+                    console.warn("Erro ao sincronizar galos:", e.message);
                 }
-            } catch (e) {
-                console.warn("Erro ao sincronizar galos:", e.message);
-            }
 
-            // 3. Buscar Estatísticas Globais de Economia
-            try {
-                const { data: economy, error: eError } = await supabase
-                    .from('economy_stats')
-                    .select('*')
-                    .eq('id', 1)
-                    .single();
-                
-                if (eError) throw eError;
-                if (economy) {
-                    this.gameData.economy.totalRake = parseInt(economy.total_rake);
-                    this.gameData.economy.jackpotPool = parseInt(economy.jackpot_pool);
-                    console.log("Economia global sincronizada.");
+                // 3. Buscar Estatísticas Globais de Economia
+                console.log("Buscando Economia...");
+                try {
+                    const { data: economy, error: eError } = await supabase
+                        .from('economy_stats')
+                        .select('*')
+                        .eq('id', 1)
+                        .single();
+                    
+                    if (eError) throw eError;
+                    if (economy) {
+                        this.gameData.economy.totalRake = parseInt(economy.total_rake);
+                        this.gameData.economy.jackpotPool = parseInt(economy.jackpot_pool);
+                        console.log("Economia global sincronizada.");
+                    }
+                } catch (e) {
+                    console.warn("Erro ao sincronizar economia global:", e.message);
                 }
-            } catch (e) {
-                console.warn("Erro ao sincronizar economia global:", e.message);
-            }
 
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.gameData));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.gameData));
+                return true;
+            })();
+
+            // Corrida entre o sync e o timeout
+            await Promise.race([syncPromise, timeoutPromise]);
+            console.log("Sincronização concluída com sucesso.");
             return true;
         } catch (err) {
-            console.error("Falha crítica na sincronização:", err);
-            return false;
+            console.error("Falha na sincronização (Timeout ou Erro Crítico):", err);
+            // Mesmo com erro, retornamos true para não bloquear o jogo, 
+            // assumindo que os dados locais ou padrão serão usados.
+            return true; 
         }
     }
 
