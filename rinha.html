@@ -1020,6 +1020,17 @@
 
                 const res = await Auth.register(username, email, password, lang);
                 if (res.success) {
+                    // Engenharia de Ponta: Aplica indicação pendente após registro bem-sucedido
+                    const pendingRef = localStorage.getItem('pending_referral');
+                    if (pendingRef) {
+                        console.log("Aplicando indicação pendente:", pendingRef);
+                        const { ReferralService } = await import('./js/referral.js');
+                        const applied = await ReferralService.applyReferrer(pendingRef);
+                        if (applied) {
+                            console.log("Indicação aplicada com sucesso!");
+                            localStorage.removeItem('pending_referral');
+                        }
+                    }
                     initGameUI();
                 }
             },
@@ -1671,6 +1682,14 @@
         async function boot() {
             console.log("RINHA EVOLUTION: Booting...");
             
+            // Captura de indicação (Referral) via URL ?ref=
+            const urlParams = new URLSearchParams(window.location.search);
+            const refCode = urlParams.get('ref');
+            if (refCode) {
+                console.log("Código de indicação detectado:", refCode);
+                localStorage.setItem('pending_referral', refCode);
+            }
+
             // Define o idioma inicial antes de qualquer coisa
             const currentLang = state.gameData.settings.lang || 'pt-BR';
             window.app.setLang(currentLang);

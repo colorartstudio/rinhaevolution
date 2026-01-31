@@ -14,6 +14,15 @@ export class Auth {
                     name: session.user.user_metadata?.full_name || session.user.email.split('@')[0], 
                     email: session.user.email 
                 };
+                
+                // Engenharia de Ponta: Verifica indicação pendente para logins sociais (Google)
+                const pendingRef = localStorage.getItem('pending_referral');
+                if (pendingRef) {
+                    const { ReferralService } = await import('./referral.js');
+                    const applied = await ReferralService.applyReferrer(pendingRef);
+                    if (applied) localStorage.removeItem('pending_referral');
+                }
+
                 await state.syncAll();
                 this.showMainGame();
             } else if (event === 'SIGNED_OUT') {
@@ -166,6 +175,13 @@ export class Auth {
 
             if (error) {
                 console.error("Erro retornado pelo Supabase Auth:", error.status, error.message);
+                
+                // Engenharia Avançada: Tratamento específico para e-mail não confirmado
+                if (error.message.includes("Email not confirmed")) {
+                    alert("⚠️ Seu e-mail ainda não foi confirmado. Por favor, verifique sua caixa de entrada ou entre em contato com o suporte.");
+                    return { success: false, error: "E-mail não confirmado." };
+                }
+
                 throw error;
             }
 
