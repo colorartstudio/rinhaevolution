@@ -1018,11 +1018,9 @@
                     return;
                 }
 
-                const res = await Auth.register(email, password, username, lang);
+                const res = await Auth.register(username, email, password, lang);
                 if (res.success) {
                     initGameUI();
-                } else {
-                    alert("Erro ao cadastrar: " + res.error);
                 }
             },
             handleLogin: async () => {
@@ -1038,8 +1036,6 @@
                 if (res.success) {
                     initGameUI();
                     checkUrlChallenge();
-                } else {
-                    alert("Erro ao entrar: " + res.error);
                 }
             },
             handleGuestLogin: async () => {
@@ -1050,9 +1046,6 @@
             },
             handleGoogleLogin: async () => {
                 const res = await Auth.loginWithGoogle();
-                if (!res.success) {
-                    alert("Erro ao entrar com Google: " + res.error);
-                }
             },
             logout: () => Auth.logout(),
             setWalletNetwork: (net) => {

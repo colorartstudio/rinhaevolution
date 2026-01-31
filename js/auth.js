@@ -96,7 +96,7 @@ export class Auth {
         i18n.updateUI();
     }
 
-    static async register(email, password, username, lang) {
+    static async register(username, email, password, lang) {
         console.log(`Iniciando registro para: ${email}...`);
         try {
             const { data, error } = await supabase.auth.signUp({
@@ -112,8 +112,16 @@ export class Auth {
 
             if (error) {
                 console.error("Erro retornado pelo Supabase Auth no Registro:", error.status, error.message);
+                
+                // Engenharia Avançada: Se for erro 500, pode ser a trigger de perfil.
+                // Mas a conta de AUTH pode ter sido criada. Tentamos avisar o usuário.
+                if (error.status === 500 || error.message.includes("Database error")) {
+                    throw new Error("Erro de servidor (500). Verifique a configuração da Trigger no Supabase ou tente fazer login direto se já confirmou o e-mail.");
+                }
                 throw error;
             }
+
+            if (!data.user) throw new Error("Falha ao obter dados do usuário após registro.");
 
             console.log("Usuário criado com sucesso no Supabase. ID:", data.user.id);
             state.gameData.user = { 
@@ -125,8 +133,13 @@ export class Auth {
             
             // Aguarda um pequeno delay para a trigger do Supabase criar o profile
             console.log("Aguardando criação do profile via trigger...");
-            await new Promise(r => setTimeout(r, 1500));
-            await state.syncAll();
+            await new Promise(r => setTimeout(r, 2000)); // Aumentado para 2s para segurança
+            
+            try {
+                await state.syncAll();
+            } catch (syncErr) {
+                console.warn("Aviso: Falha na sincronização inicial do profile, mas o usuário foi registrado.", syncErr);
+            }
 
             i18n.setLanguage(lang);
             state.save();
@@ -134,6 +147,11 @@ export class Auth {
             return { success: true };
         } catch (err) {
             console.error("Erro capturado na função Auth.register:", err);
+            let userMsg = err.message;
+            if (err.message.includes("Database error")) {
+                userMsg = "Erro no Banco de Dados: O Supabase falhou ao salvar o perfil. Verifique as Triggers SQL no painel.";
+            }
+            alert("Erro ao cadastrar: " + userMsg);
             return { success: false, error: err.message };
         }
     }
@@ -199,6 +217,10 @@ export class Auth {
 
             if (error) {
                 console.error("Erro retornado pelo Supabase OAuth:", error.status, error.message);
+                
+                if (error.status === 500 || error.message.includes("Database error")) {
+                    throw new Error("Erro de servidor (500) ao processar login Google. Verifique se a Trigger de perfil está funcionando corretamente no Supabase.");
+                }
                 throw error;
             }
             
@@ -206,7 +228,7 @@ export class Auth {
             return { success: true };
         } catch (err) {
             console.error("Falha crítica no Login Google:", err.message);
-            alert("Erro no Login Google: Verifique se o provedor está ativado no painel do Supabase e se a URL de redirecionamento está autorizada.");
+            alert("Erro no Login Google: " + err.message + "\n\nSugestão: Verifique se o provedor está ativo e se a trigger SQL de novos usuários está correta.");
             return { success: false, error: err.message };
         }
     }
