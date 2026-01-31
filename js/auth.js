@@ -3,6 +3,27 @@ import i18n from './i18n.js';
 import { supabase } from './supabase.js';
 
 export class Auth {
+    static init() {
+        console.log("Inicializando listener de autenticação...");
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log(`Evento de Autenticação: ${event}`);
+            if (event === 'SIGNED_IN' && session) {
+                console.log("Usuário autenticado via OAuth/Session. Atualizando estado...");
+                state.gameData.user = { 
+                    id: session.user.id, 
+                    name: session.user.user_metadata?.full_name || session.user.email.split('@')[0], 
+                    email: session.user.email 
+                };
+                await state.syncAll();
+                this.showMainGame();
+            } else if (event === 'SIGNED_OUT') {
+                console.log("Usuário saiu. Limpando estado...");
+                state.gameData.user = null;
+                this.showLogin();
+            }
+        });
+    }
+
     static async checkSession() {
         // Se for convidado, pula verificação do Supabase
         if (state.gameData.user && state.gameData.user.isGuest) {
@@ -146,23 +167,46 @@ export class Auth {
             return { success: true };
         } catch (err) {
             console.error("Erro capturado na função Auth.login:", err);
+            let msg = "Falha ao entrar.";
+            if (err.message.includes("Invalid login credentials")) {
+                msg = "Email ou senha incorretos.";
+            }
+            alert(msg);
             return { success: false, error: err.message };
         }
     }
 
     static async loginWithGoogle() {
+        console.log("Iniciando fluxo de login com Google...");
         try {
+            if (!supabase || !supabase.auth) {
+                throw new Error("Cliente Supabase não inicializado corretamente.");
+            }
+
+            const redirectUrl = window.location.origin + window.location.pathname;
+            console.log("URL de redirecionamento configurada:", redirectUrl);
+
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: window.location.origin + window.location.pathname
+                    redirectTo: redirectUrl,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    }
                 }
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error("Erro retornado pelo Supabase OAuth:", error.status, error.message);
+                throw error;
+            }
+            
+            console.log("Redirecionando para o provedor Google...");
             return { success: true };
         } catch (err) {
-            console.error("Google login error:", err);
+            console.error("Falha crítica no Login Google:", err.message);
+            alert("Erro no Login Google: Verifique se o provedor está ativado no painel do Supabase e se a URL de redirecionamento está autorizada.");
             return { success: false, error: err.message };
         }
     }
