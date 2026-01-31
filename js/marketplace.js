@@ -41,6 +41,16 @@ export class MarketplaceService {
         const newRooster = state.constructor.createRooster(element, color);
         
         try {
+            // 0. Check if Guest (Skip Supabase)
+            if (state.gameData.user.isGuest) {
+                 // 2. Atualizar localmente apenas
+                state.gameData.balance -= price;
+                MissionService.updateProgress(MISSION_TYPES.SPEND, price);
+                state.gameData.inventory.roosters.push(newRooster);
+                state.save();
+                return { success: true, rooster: newRooster };
+            }
+
             const { supabase } = await import('./supabase.js');
             
             // 1. Salvar no Supabase

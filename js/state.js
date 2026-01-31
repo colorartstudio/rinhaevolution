@@ -24,10 +24,10 @@ export const SKINS = {
 };
 
 export const ARENAS = [
-    { id: 'earth', name: 'Caverna', class: 'arena-earth', bonusElement: 'earth', icon: '🏔️' },
-    { id: 'water', name: 'Lagoa', class: 'arena-water', bonusElement: 'water', icon: '🌊' },
-    { id: 'air', name: 'Pico Alto', class: 'arena-air', bonusElement: 'air', icon: '🌪️' },
-    { id: 'fire', name: 'Cratera', class: 'arena-volcano', bonusElement: 'fire', icon: '🔥' }
+    { id: 'earth', name: 'Caverna', class: 'arena-earth', bonusElement: 'earth', color: 'yellow', icon: '🏔️' },
+    { id: 'water', name: 'Lagoa', class: 'arena-water', bonusElement: 'water', color: 'blue', icon: '🌊' },
+    { id: 'air', name: 'Pico Alto', class: 'arena-air', bonusElement: 'air', color: 'green', icon: '🌪️' },
+    { id: 'fire', name: 'Cratera', class: 'arena-volcano', bonusElement: 'fire', color: 'red', icon: '🔥' }
 ];
 
 class State {
@@ -121,9 +121,9 @@ class State {
         
         console.log("Iniciando sincronização total com Supabase...");
         
-        // Timeout de segurança para evitar travamento eterno
+        // Timeout de segurança para evitar travamento eterno (Aumentado para 15s para conexões lentas)
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Timeout na sincronização")), 8000)
+            setTimeout(() => reject(new Error("Timeout na sincronização")), 15000)
         );
 
         try {
@@ -162,8 +162,13 @@ class State {
                     
                     if (rError) throw rError;
                     if (roosters) {
-                        this.gameData.inventory.roosters = roosters;
-                        this.gameData.teams.active = roosters
+                        // Mapeia atk_base para atk para compatibilidade com o motor de jogo
+                        const mappedRoosters = roosters.map(r => ({
+                            ...r,
+                            atk: r.atk_base || r.atk || (ELEMENTS[r.element].base + (r.level * 2))
+                        }));
+                        this.gameData.inventory.roosters = mappedRoosters;
+                        this.gameData.teams.active = mappedRoosters
                             .filter(r => r.in_team)
                             .map(r => r.id);
                         console.log(`${roosters.length} galos sincronizados.`);
@@ -200,7 +205,7 @@ class State {
             console.log("Sincronização concluída com sucesso.");
             return true;
         } catch (err) {
-            console.error("Falha na sincronização (Timeout ou Erro Crítico):", err);
+            console.warn("Falha na sincronização (Timeout ou Erro Crítico) - Usando dados locais:", err.message);
             // Mesmo com erro, retornamos true para não bloquear o jogo, 
             // assumindo que os dados locais ou padrão serão usados.
             return true; 

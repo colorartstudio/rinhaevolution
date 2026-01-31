@@ -227,21 +227,25 @@ function startGame() {
 
 
 
-function showFinalResult3v3(playerWon) {
+function showFinalResult3v3(playerWon, report) {
     const pGrid = document.getElementById('player-avatars-grid');
     const cGrid = document.getElementById('cpu-avatars-grid');
     
-    if (playerWon) {
+    if (playerWon === true) {
         pGrid.classList.add('anim-winner-l');
         cGrid.classList.add('opacity-50', 'grayscale');
         AudioEngine.playWin();
-    } else {
+    } else if (playerWon === false) {
         cGrid.classList.add('anim-winner-r');
         pGrid.classList.add('opacity-50', 'grayscale');
         AudioEngine.playLoss();
+    } else {
+        // Empate
+        pGrid.classList.add('opacity-80');
+        cGrid.classList.add('opacity-80');
+        AudioEngine.playClick();
     }
     
-    const report = { arena: i18n.t(`arena-${state.currentArena.id}`), p: { final: 100 }, c: { final: 80 } };
     showDetailedResult(playerWon, report);
 }
 
@@ -328,31 +332,13 @@ async function battleSequence() {
     const pRooster = TeamService.getTeamRoosters()[0] || state.constructor.createRooster(state.player.element, state.player.color);
     const cRooster = state.constructor.createRooster(state.cpu.element, state.cpu.color, pRooster.level);
     
+    const isTieBattle = isIdentical(pRooster, cRooster);
+
     // Initial UI Setup
     pRooster.energy = pRooster.energy_max || 100;
     cRooster.energy = cRooster.energy_max || 100;
     updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
     updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max || 100);
-
-    // Engenharia Avançada: Cálculo de Atributos para os Cards Visuais
-    const arenaBonus = state.currentArena.bonus === pRooster.element ? 1.25 : 1;
-    const colorBonus = COLORS[pRooster.color]?.special ? 1.3 : 1;
-    const pTotal = Math.round(pRooster.atk * arenaBonus * colorBonus);
-
-    const cArenaBonus = state.currentArena.bonus === cRooster.element ? 1.25 : 1;
-    const cColorBonus = COLORS[cRooster.color]?.special ? 1.3 : 1;
-    const cTotal = Math.round(cRooster.atk * cArenaBonus * cColorBonus);
-
-    // Preencher Cards de Atributos
-    document.getElementById('btl-p-base').innerText = pRooster.atk;
-    document.getElementById('btl-p-bonus').innerText = arenaBonus > 1 ? '+25%' : '+0%';
-    document.getElementById('btl-p-paint').innerHTML = colorBonus > 1 ? '<span class="text-green-400">+30%</span>' : '-';
-    document.getElementById('btl-p-total').innerText = pTotal;
-
-    document.getElementById('btl-c-base').innerText = cRooster.atk;
-    document.getElementById('btl-c-bonus').innerText = cArenaBonus > 1 ? '+25%' : '+0%';
-    document.getElementById('btl-c-paint').innerHTML = cColorBonus > 1 ? '<span class="text-red-400">+30%</span>' : '-';
-    document.getElementById('btl-c-total').innerText = cTotal;
 
     let pHP = pRooster.hp_max;
     let cHP = cRooster.hp_max;
@@ -360,14 +346,17 @@ async function battleSequence() {
     const pAv = document.getElementById('player-avatar');
     const cAv = document.getElementById('cpu-avatar');
 
-    let pStatus = { shield: 1, def: 1, burn: 0, stun: false };
-    let cStatus = { shield: 1, def: 1, burn: 0, stun: false };
+    let pStatus = { shield: 1, def: 1, burn: 0, stun: false, element: pRooster.element, color: pRooster.color };
+    let cStatus = { shield: 1, def: 1, burn: 0, stun: false, element: cRooster.element, color: cRooster.color };
 
-    // Turn Loop
-    while (pHP > 0 && cHP > 0) {
+    // Turn Loop (Fixed to 8 rounds or until KO)
+    let round = 1;
+    const MAX_ROUNDS = 8;
+
+    while (pHP > 0 && cHP > 0 && round <= MAX_ROUNDS) {
         // Energy Regen per turn
-        pRooster.energy = Math.min(pRooster.energy_max || 100, pRooster.energy + 15);
-        cRooster.energy = Math.min(cRooster.energy_max || 100, cRooster.energy + 15);
+        pRooster.energy = Math.min(pRooster.energy_max || 100, pRooster.energy + 20);
+        cRooster.energy = Math.min(cRooster.energy_max || 100, cRooster.energy + 20);
         updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
         updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max || 100);
 
@@ -380,13 +369,25 @@ async function battleSequence() {
                 pRooster.energy -= skill.cost;
                 updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max);
 
-                let dmgC = SkillService.calculateDamage(pRooster.atk, skill.multiplier, pRooster.level);
-                dmgC = Math.round(dmgC * cStatus.shield * (1 / cStatus.def));
+                const advDmg = calculateAdvancedDamage(pRooster.atk, skill.multiplier, pRooster.level, state.currentArena, pRooster.element, pRooster.color, cStatus);
+                let dmgC = Math.round(advDmg.value * cStatus.shield * (1 / cStatus.def));
+                
+                // Engenharia Avançada: Se for Empate, equilibramos o dano para terminar junto
+                if (isTieBattle) dmgC = Math.round(cRooster.hp_max / MAX_ROUNDS);
+                else dmgC = Math.max(1, Math.round(dmgC * 0.12)); // Redutor ajustado para ~15s de luta
+
                 cStatus.shield = 1;
 
-                pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(500);
+                // Frenesi: Animações mais rápidas
+                pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(300);
                 cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
-                showFloatingText(cAv, `-${dmgC}`, 'right', false); 
+                
+                // Feedback visual de Crítico/Fraco
+                let floatMsg = `-${dmgC}`;
+                if (advDmg.type === 'critical') floatMsg = `CRÍTICO! ${floatMsg}`;
+                if (advDmg.type === 'weak') floatMsg = `FRACO... ${floatMsg}`;
+                
+                showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical'); 
                 updateHealth('c-hp-bar', (dmgC / cRooster.hp_max) * 100);
                 cHP -= dmgC;
 
@@ -414,14 +415,14 @@ async function battleSequence() {
                     showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
                 }
                 AudioEngine.playClick();
-                await sleep(1000);
+                await sleep(500);
             }
 
-            await sleep(800); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(1200);
+            await sleep(400); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(600);
         } else {
             showFloatingText(pAv, "ATORDUADO!", 'left', false);
             pStatus.stun = false;
-            await sleep(1800);
+            await sleep(1000);
         }
 
         if (cHP <= 0) break;
@@ -433,7 +434,7 @@ async function battleSequence() {
             updateHealth('c-hp-bar', (bDmg / cRooster.hp_max) * 100);
             showFloatingText(cAv, `-${bDmg} 🔥`, 'right', false);
             cStatus.burn--;
-            await sleep(1200);
+            await sleep(800);
         }
 
         if (cHP <= 0) break;
@@ -441,20 +442,28 @@ async function battleSequence() {
         // --- CPU TURN ---
         if (!cStatus.stun) {
             const cSkills = SkillService.getSkillsForRooster(cRooster.element, cRooster.level);
-            // CPU Filter skills it can afford
             const affordableSkills = cSkills.filter(s => s.cost <= cRooster.energy);
             const cSkill = affordableSkills.length > 0 ? affordableSkills[Math.floor(Math.random() * affordableSkills.length)] : cSkills[0];
             
             cRooster.energy -= cSkill.cost;
             updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max);
 
-            let dmgP = SkillService.calculateDamage(cRooster.atk, cSkill.multiplier, cRooster.level);
-            dmgP = Math.round(dmgP * pStatus.shield * (1 / pStatus.def));
+            const advDmgP = calculateAdvancedDamage(cRooster.atk, cSkill.multiplier, cRooster.level, state.currentArena, cRooster.element, cRooster.color, pStatus);
+            let dmgP = Math.round(advDmgP.value * pStatus.shield * (1 / pStatus.def));
+            
+            if (isTieBattle) dmgP = Math.round(pRooster.hp_max / MAX_ROUNDS);
+            else dmgP = Math.max(1, Math.round(dmgP * 0.12));
+
             pStatus.shield = 1;
 
-            cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(500);
+            cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(300);
             pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
-            showFloatingText(pAv, `-${dmgP}`, 'left', false); 
+            
+            let floatMsgP = `-${dmgP}`;
+            if (advDmgP.type === 'critical') floatMsgP = `CRÍTICO! ${floatMsgP}`;
+            if (advDmgP.type === 'weak') floatMsgP = `FRACO... ${floatMsgP}`;
+
+            showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical'); 
             updateHealth('p-hp-bar', (dmgP / pRooster.hp_max) * 100);
             pHP -= dmgP;
 
@@ -463,11 +472,11 @@ async function battleSequence() {
             if (cSkill.effect === 'shield') cStatus.shield = cSkill.value;
             if (cSkill.effect === 'def') cStatus.def = cSkill.value;
 
-            await sleep(800); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(1200);
+            await sleep(400); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(600);
         } else {
             showFloatingText(cAv, "ATORDUADO!", 'right', false);
             cStatus.stun = false;
-            await sleep(1800);
+            await sleep(1000);
         }
 
         // Apply Burn Player
@@ -477,41 +486,65 @@ async function battleSequence() {
             updateHealth('p-hp-bar', (bDmg / pRooster.hp_max) * 100);
             showFloatingText(pAv, `-${bDmg} 🔥`, 'left', false);
             pStatus.burn--;
-            await sleep(1200);
+            await sleep(800);
         }
+        
+        round++;
     }
 
-    const playerWon = pHP > 0;
-    
-    if (playerWon) {
+    let result = 'loss';
+    if (isTieBattle || (pHP <= 0 && cHP <= 0) || (round > MAX_ROUNDS && pHP === cHP)) {
+        result = 'tie';
+    } else if (pHP > cHP) {
+        result = 'win';
+    }
+
+    if (result === 'win') {
         pAv.classList.add('anim-winner-l'); 
         cAv.classList.add('anim-ko-r', 'grayscale', 'opacity-60'); 
         showDeadEyes(cAv); 
         AudioEngine.playWin(); 
         triggerHaptic('heavy');
-    } else {
+    } else if (result === 'loss') {
         cAv.classList.add('anim-winner-r'); 
         pAv.classList.add('anim-ko-l', 'grayscale', 'opacity-60'); 
         showDeadEyes(pAv); 
         AudioEngine.playLoss(); 
         triggerHaptic('heavy');
+    } else {
+        // Tie visual: Both looking a bit tired but no KO
+        pAv.classList.add('opacity-80');
+        cAv.classList.add('opacity-80');
+        AudioEngine.playClick();
     }
 
-    saveMatchResult(playerWon, pRooster.element, pRooster.color);
-    await sleep(3000); // 3 segundos para brilhar vencedor e KO perdedor
+    const winValue = result === 'win' ? true : (result === 'loss' ? false : null);
+    saveMatchResult(winValue, pRooster.element, pRooster.color);
+    await sleep(2500); 
     
+    // Recalcular bônus para o relatório (Regra Geral: Elemento, Cor e Arena)
+    const arenaBonus = state.currentArena.bonusElement === pRooster.element ? 1.25 : 1;
+    const colorBonus = state.currentArena.color === pRooster.color ? 1.30 : 1;
+    
+    const pTotal = Math.floor((pRooster.atk || 100) * arenaBonus * colorBonus);
+    
+    const cArenaBonus = state.currentArena.bonusElement === cRooster.element ? 1.25 : 1;
+    const cColorBonus = state.currentArena.color === cRooster.color ? 1.30 : 1;
+    const cTotal = Math.floor((cRooster.atk || 100) * cArenaBonus * cColorBonus);
+
     const report = { 
         arena: i18n.t(`arena-${state.currentArena.id}`), 
-        p: { base: pRooster.atk, final: pTotal, arena: arenaBonus > 1, color: colorBonus > 1 }, 
-        c: { base: cRooster.atk, final: cTotal, arena: cArenaBonus > 1, color: cColorBonus > 1 } 
+        p: { base: pRooster.atk || 100, final: pTotal, arena: arenaBonus > 1, color: colorBonus > 1 }, 
+        c: { base: cRooster.atk || 100, final: cTotal, arena: cArenaBonus > 1, color: cColorBonus > 1 } 
     };
-    showDetailedResult(playerWon, report);
+    
+    showDetailedResult(winValue, report);
 }
 
 async function battleSequence3v3() {
     const pTeam = TeamService.getTeamRoosters();
     const cTeam = state.cpuTeam;
-    const rounds = 9; 
+    const rounds = 8; // Ajustado para 8 rounds conforme solicitado
     
     let pHP = 300; 
     let cHP = 300;
@@ -520,6 +553,9 @@ async function battleSequence3v3() {
     pTeam.forEach(r => r.energy = r.energy_max || 100);
     cTeam.forEach(r => r.energy = r.energy_max || 100);
     
+    // Regra de Empate (Time idêntico)
+    const isTieBattle = pTeam.length === cTeam.length && pTeam.every((r, i) => isIdentical(r, cTeam[i]));
+
     for (let i = 0; i < rounds; i++) {
         const pIdx = i % pTeam.length;
         const cIdx = i % cTeam.length;
@@ -530,24 +566,8 @@ async function battleSequence3v3() {
         const pAv = document.getElementById(`player-avatar-${pIdx}`);
         const cAv = document.getElementById(`cpu-avatar-${cIdx}`);
 
-        // Atualizar Cards de Atributos para o Round Atual
-        const arenaBonus = state.currentArena.bonus === pGal.element ? 1.25 : 1;
-        const colorBonus = COLORS[pGal.color]?.special ? 1.3 : 1;
-        const pTotal = Math.round(pGal.atk * arenaBonus * colorBonus);
-
-        const cArenaBonus = state.currentArena.bonus === cGal.element ? 1.25 : 1;
-        const cColorBonus = COLORS[cGal.color]?.special ? 1.3 : 1;
-        const cTotal = Math.round(cGal.atk * cArenaBonus * cColorBonus);
-
-        document.getElementById('btl-p-base').innerText = pGal.atk;
-        document.getElementById('btl-p-bonus').innerText = arenaBonus > 1 ? '+25%' : '+0%';
-        document.getElementById('btl-p-paint').innerHTML = colorBonus > 1 ? '<span class="text-green-400">+30%</span>' : '-';
-        document.getElementById('btl-p-total').innerText = pTotal;
-
-        document.getElementById('btl-c-base').innerText = cGal.atk;
-        document.getElementById('btl-c-bonus').innerText = cArenaBonus > 1 ? '+25%' : '+0%';
-        document.getElementById('btl-c-paint').innerHTML = cColorBonus > 1 ? '<span class="text-red-400">+30%</span>' : '-';
-        document.getElementById('btl-c-total').innerText = cTotal;
+        const pStatus = { element: pGal.element, color: pGal.color, shield: 1, def: 1 };
+        const cStatus = { element: cGal.element, color: cGal.color, shield: 1, def: 1 };
 
         // Energy Regen
         pGal.energy = Math.min(pGal.energy_max || 100, pGal.energy + 20);
@@ -561,25 +581,34 @@ async function battleSequence3v3() {
             pGal.energy -= skill.cost;
             updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
 
-            const dmgC = SkillService.calculateDamage(pGal.atk, skill.multiplier, pGal.level);
-
+            const advDmg = calculateAdvancedDamage(pGal.atk, skill.multiplier, pGal.level, state.currentArena, pGal.element, pGal.color, cStatus);
+            let dmgC = advDmg.value;
+            
+            if (isTieBattle) dmgC = Math.round(300 / rounds);
+            else dmgC = Math.max(1, Math.round(dmgC * 0.25)); // Redutor 3v3 ajustado para ~15s
+            
+            pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(300);
+            cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
+            
             if (skill.effect === 'heal') {
                 const heal = Math.round(300 * (skill.value / 100));
                 pHP = Math.min(300, pHP + heal);
                 updateHealth('p-hp-bar', -(heal / 300) * 100);
                 showFloatingText(pAv, `+${heal}`, 'left', false);
             }
+            
+            let floatMsg = `-${dmgC}`;
+            if (advDmg.type === 'critical') floatMsg = `CRÍTICO! ${floatMsg}`;
+            if (advDmg.type === 'weak') floatMsg = `FRACO... ${floatMsg}`;
 
-            pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(500);
-            cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
-            showFloatingText(cAv, `-${dmgC}`, 'right', false); 
+            showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical'); 
             updateHealth('c-hp-bar', (dmgC / 300) * 100);
             cHP -= dmgC;
         } else if (action.type === 'item') {
             const item = state.gameData.inventory.items.find(it => it.id === action.id);
             item.count--;
             if (item.type === 'heal') {
-                const heal = 50; // Team heal in 3v3
+                const heal = 50; 
                 pHP = Math.min(300, pHP + heal);
                 updateHealth('p-hp-bar', -(heal / 300) * 100);
                 showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
@@ -588,10 +617,10 @@ async function battleSequence3v3() {
                 updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
                 showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
             }
-            await sleep(1500);
+            await sleep(500);
         }
 
-        await sleep(800); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(1200);
+        await sleep(400); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(600);
 
         if (cHP <= 0) break;
 
@@ -603,22 +632,39 @@ async function battleSequence3v3() {
         cGal.energy -= cSkill.cost;
         updateEnergy('c-en-bar', cGal.energy, cGal.energy_max);
 
-        const dmgP = SkillService.calculateDamage(cGal.atk, cSkill.multiplier, cGal.level);
+        const advDmgP = calculateAdvancedDamage(cGal.atk, cSkill.multiplier, cGal.level, state.currentArena, cGal.element, cGal.color, pStatus);
+        let dmgP = advDmgP.value;
+        
+        if (isTieBattle) dmgP = Math.round(300 / rounds);
+        else dmgP = Math.max(1, Math.round(dmgP * 0.25));
 
-        cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(500);
+        cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(300);
         pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
-        showFloatingText(pAv, `-${dmgP}`, 'left', false); 
+
+        let floatMsgP = `-${dmgP}`;
+        if (advDmgP.type === 'critical') floatMsgP = `CRÍTICO! ${floatMsgP}`;
+        if (advDmgP.type === 'weak') floatMsgP = `FRACO... ${floatMsgP}`;
+
+        showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical'); 
         updateHealth('p-hp-bar', (dmgP / 300) * 100);
         pHP -= dmgP;
-        await sleep(800); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(1200);
+
+        await sleep(400); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(600);
 
         if (pHP <= 0) break;
     }
 
-    const playerWon = pHP > cHP;
-    if (playerWon) {
+    let result = 'loss';
+    if (isTieBattle || (pHP <= 0 && cHP <= 0) || (pHP === cHP)) {
+        result = 'tie';
+    } else if (pHP > cHP) {
+        result = 'win';
+    }
+
+    const playerWon = result === 'win' ? true : (result === 'loss' ? false : null);
+
+    if (result === 'win') {
         triggerHaptic('heavy');
-        // Adicionar efeito visual final
         pTeam.forEach((r, idx) => {
             const av = document.getElementById(`player-avatar-${idx}`);
             if (av) av.classList.add('anim-winner-l');
@@ -630,7 +676,7 @@ async function battleSequence3v3() {
                 showDeadEyes(av);
             }
         });
-    } else {
+    } else if (result === 'loss') {
         cTeam.forEach((r, idx) => {
             const av = document.getElementById(`cpu-avatar-${idx}`);
             if (av) av.classList.add('anim-winner-r');
@@ -642,11 +688,48 @@ async function battleSequence3v3() {
                 showDeadEyes(av);
             }
         });
+    } else {
+        // Tie visual
+        pTeam.forEach((r, idx) => {
+            const av = document.getElementById(`player-avatar-${idx}`);
+            if (av) av.classList.add('opacity-80');
+        });
+        cTeam.forEach((r, idx) => {
+            const av = document.getElementById(`cpu-avatar-${idx}`);
+            if (av) av.classList.add('opacity-80');
+        });
     }
 
     saveMatchResult(playerWon, pTeam[0].element, pTeam[0].color);
-    await sleep(3000); // 3 segundos para brilhar vencedor e KO perdedor
-    showFinalResult3v3(playerWon);
+    
+    // Engenharia de Dados: Gerar relatório real para 3v3
+    const avgPAtk = Math.round(pTeam.reduce((acc, r) => acc + (r.atk || 100), 0) / pTeam.length);
+    const avgCAtk = Math.round(cTeam.reduce((acc, r) => acc + (r.atk || 100), 0) / cTeam.length);
+    
+    const arenaBonusP = pTeam.some(r => r.element === state.currentArena.bonusElement) ? 1.25 : 1;
+    const colorBonusP = pTeam.some(r => r.color === state.currentArena.color) ? 1.30 : 1;
+    
+    const arenaBonusC = cTeam.some(r => r.element === state.currentArena.bonusElement) ? 1.25 : 1;
+    const colorBonusC = cTeam.some(r => r.color === state.currentArena.color) ? 1.30 : 1;
+
+    const report = {
+        arena: i18n.t(`arena-${state.currentArena.id}`),
+        p: { 
+            base: avgPAtk, 
+            final: Math.round(pHP), 
+            arena: arenaBonusP > 1, 
+            color: colorBonusP > 1
+        },
+        c: { 
+            base: avgCAtk, 
+            final: Math.round(cHP), 
+            arena: arenaBonusC > 1, 
+            color: colorBonusC > 1
+        }
+    };
+
+    await sleep(3000); 
+    showFinalResult3v3(playerWon, report);
 }
 
 async function saveMatchResult(win, pEl, pCol) {
@@ -779,6 +862,39 @@ async function saveMatchResult(win, pEl, pCol) {
     }
 }
 
+function isIdentical(r1, r2) {
+    return r1.element === r2.element && r1.color === r2.color;
+}
+
+function calculateAdvancedDamage(atk, multiplier, level, arena, element, color, targetStatus) {
+    const safeAtk = atk || 100;
+    const arenaBonus = arena.bonusElement === element ? 1.25 : 1;
+    const colorBonus = arena.color && arena.color === color ? 1.30 : 1;
+    
+    let dmg = SkillService.calculateDamage(safeAtk, multiplier, level);
+    dmg = dmg * arenaBonus * colorBonus;
+    
+    // Variance (Jitter) ±5% - Reduzido para maior determinismo
+    const jitter = 0.95 + (Math.random() * 0.1);
+    dmg *= jitter;
+    
+    // Critical / Weak
+    let type = 'normal';
+    const rand = Math.random();
+    if (rand < 0.10) {
+        dmg *= 1.5;
+        type = 'critical';
+    } else if (rand > 0.90) {
+        dmg *= 0.7;
+        type = 'weak';
+    }
+    
+    return { 
+        value: Math.max(1, Math.round(dmg)), 
+        type 
+    };
+}
+
 export function startTournament() {
     const fee = 500;
     if (state.gameData.balance < fee) {
@@ -844,10 +960,17 @@ export function resetGame() {
     }
     
     // Reset Battle Stage
-    document.getElementById('player-avatar').className = "w-32 h-32 md:w-48 md:h-48 filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]";
-    document.getElementById('cpu-avatar').className = "w-32 h-32 md:w-48 md:h-48 filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] transform scale-x-[-1]";
-    document.getElementById('p-hp-bar').style.width = '100%';
-    document.getElementById('c-hp-bar').style.width = '100%';
+    const pAv = document.getElementById('player-avatar');
+    if (pAv) pAv.className = "w-32 h-32 md:w-48 md:h-48 filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]";
+    
+    const cAv = document.getElementById('cpu-avatar');
+    if (cAv) cAv.className = "w-32 h-32 md:w-48 md:h-48 filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] transform scale-x-[-1]";
+    
+    const pHp = document.getElementById('p-hp-bar');
+    if (pHp) pHp.style.width = '100%';
+    
+    const cHp = document.getElementById('c-hp-bar');
+    if (cHp) cHp.style.width = '100%';
     
     // Reset Selection UI (Keep selected element/color but re-enable button)
     const btn = document.getElementById('btn-start');
@@ -938,15 +1061,15 @@ function showDetailedResult(win, report) {
     document.getElementById('res-p-base').innerText = report.p.base;
     document.getElementById('res-p-final').innerText = report.p.final;
     const dash = '<i class="fas fa-minus-circle text-slate-600"></i>';
-    document.getElementById('res-p-arena').innerHTML = `<span>${i18n.t('btl-bonus')}:</span> ${report.p.arena ? '<span class="text-green-400 font-bold">+25%</span>' : dash}`;
-    document.getElementById('res-p-color').innerHTML = `<span>${i18n.t('sel-paint')}:</span> ${report.p.color ? '<span class="text-green-400 font-bold">+30%</span>' : dash}`;
+    document.getElementById('res-p-bonus').innerHTML = `<span>Bonus:</span> ${report.p.arena ? '<span class="text-green-400 font-bold">+25%</span>' : dash}`;
+    document.getElementById('res-p-paint').innerHTML = `<span>Pintura:</span> ${report.p.color ? '<span class="text-green-400 font-bold">+30%</span>' : dash}`;
     
     renderAvatar('res-p-icon', state.player.element, state.player.color);
 
     document.getElementById('res-c-base').innerText = report.c.base;
     document.getElementById('res-c-final').innerText = report.c.final;
-    document.getElementById('res-c-arena').innerHTML = `<span>${i18n.t('btl-bonus')}:</span> ${report.c.arena ? '<span class="text-green-400 font-bold">+25%</span>' : dash}`;
-    document.getElementById('res-c-color').innerHTML = `<span>${i18n.t('sel-paint')}:</span> ${report.c.color ? '<span class="text-green-400 font-bold">+30%</span>' : dash}`;
+    document.getElementById('res-c-bonus').innerHTML = `<span>Bonus:</span> ${report.c.arena ? '<span class="text-red-400 font-bold">+25%</span>' : dash}`;
+    document.getElementById('res-c-paint').innerHTML = `<span>Pintura:</span> ${report.c.color ? '<span class="text-red-400 font-bold">+30%</span>' : dash}`;
     
     renderAvatar('res-c-icon', state.cpu.element, state.cpu.color);
 

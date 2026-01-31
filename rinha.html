@@ -254,6 +254,31 @@
             height: 64px;
             padding-bottom: env(safe-area-inset-bottom, 0px);
         }
+
+        /* Nascimento Radiante - Engenharia de Design */
+        @keyframes radiant-glow {
+            0% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), inset 0 0 20px rgba(255, 215, 0, 0.2); }
+            50% { box-shadow: 0 0 60px rgba(255, 215, 0, 0.8), inset 0 0 40px rgba(255, 215, 0, 0.4); }
+            100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), inset 0 0 20px rgba(255, 215, 0, 0.2); }
+        }
+        @keyframes birth-expand {
+            0% { transform: scale(0) rotate(-180deg); opacity: 0; filter: brightness(5); }
+            60% { transform: scale(1.2) rotate(10deg); opacity: 1; filter: brightness(2); }
+            100% { transform: scale(1) rotate(0); opacity: 1; filter: brightness(1); }
+        }
+        @keyframes fusion-flash {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        @keyframes float-gentle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .anim-radiant { animation: radiant-glow 3s infinite ease-in-out; }
+        .anim-birth { animation: birth-expand 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .anim-flash { animation: fusion-flash 0.8s ease-out forwards; }
+        .anim-float { animation: float-gentle 4s infinite ease-in-out; }
     </style>
 </head>
 <body class="bg-slate-950 min-h-screen text-slate-100 selection:bg-yellow-500 selection:text-black flex flex-col">
@@ -664,58 +689,14 @@
         </div>
 
         <div id="battle-stage" class="relative z-10 flex-1 flex flex-col justify-center items-center pb-20 w-full max-w-lg mx-auto opacity-0 transition-opacity duration-1000">
-            
-            <!-- BATTLE STATS CARDS (NEW) -->
-            <div class="w-full flex gap-3 px-4 mb-6 relative z-30">
-                <!-- Player Card -->
-                <div class="flex-1 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl">
-                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 text-center" data-i18n="res-you">VOCÊ</div>
-                    <div class="space-y-2 text-[10px] font-bold">
-                        <div class="flex justify-between border-b border-white/5 pb-1">
-                            <span class="text-slate-400">Base:</span>
-                            <span id="btl-p-base" class="text-white font-mono">100</span>
-                        </div>
-                        <div class="flex justify-between border-b border-white/5 pb-1">
-                            <span class="text-slate-400">Bonus:</span>
-                            <span id="btl-p-bonus" class="text-green-400 font-mono">+0%</span>
-                        </div>
-                        <div class="flex justify-between border-b border-white/5 pb-1">
-                            <span class="text-slate-400">2. Pintura:</span>
-                            <span id="btl-p-paint" class="text-slate-600 font-mono">-</span>
-                        </div>
-                    </div>
-                    <div id="btl-p-total" class="mt-4 text-3xl font-black text-green-400 text-center drop-shadow-[0_0_10px_rgba(74,222,128,0.3)]">100</div>
-                </div>
-
-                <!-- CPU Card -->
-                <div class="flex-1 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl">
-                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 text-center" data-i18n="res-cpu">CPU</div>
-                    <div class="space-y-2 text-[10px] font-bold">
-                        <div class="flex justify-between border-b border-white/5 pb-1">
-                            <span class="text-slate-400">Base:</span>
-                            <span id="btl-c-base" class="text-white font-mono">100</span>
-                        </div>
-                        <div class="flex justify-between border-b border-white/5 pb-1">
-                            <span class="text-slate-400">Bonus:</span>
-                            <span id="btl-c-bonus" class="text-green-400 font-mono">+0%</span>
-                        </div>
-                        <div class="flex justify-between border-b border-white/5 pb-1">
-                            <span class="text-slate-400">2. Pintura:</span>
-                            <span id="btl-c-paint" class="text-slate-600 font-mono">-</span>
-                        </div>
-                    </div>
-                    <div id="btl-c-total" class="mt-4 text-3xl font-black text-red-400 text-center drop-shadow-[0_0_10px_rgba(248,113,113,0.3)]">100</div>
-                </div>
-            </div>
-
             <!-- Time CPU -->
             <div id="cpu-team-container" class="w-full px-8 flex flex-col items-end mb-8 relative">
                 <div class="flex items-center gap-3 mb-1 w-full justify-end">
                     <div id="cpu-modifiers" class="flex gap-1"></div>
                     <span id="cpu-name-display" class="font-display text-lg text-slate-200 shadow-black drop-shadow-md" data-i18n="res-cpu">CPU</span>
                 </div>
-                <div class="w-2/3 h-3 bg-slate-800/80 rounded-full border border-slate-600 overflow-hidden"><div id="c-hp-bar" class="h-full bg-gradient-to-l from-red-500 to-red-400 w-full transition-all duration-300"></div></div>
-                <div class="w-1/2 h-1 bg-slate-800/80 rounded-full border border-slate-700 overflow-hidden mt-1"><div id="c-en-bar" class="h-full bg-blue-500 w-full transition-all duration-300"></div></div>
+                <div class="w-2/3 h-3 bg-slate-800/80 rounded-full border border-slate-600 overflow-hidden flex justify-end"><div id="c-hp-bar" class="h-full bg-gradient-to-l from-red-500 to-red-400 w-full transition-all duration-300"></div></div>
+                <div class="w-1/2 h-1 bg-slate-800/80 rounded-full border border-slate-700 overflow-hidden mt-1 flex justify-end"><div id="c-en-bar" class="h-full bg-blue-500 w-full transition-all duration-300"></div></div>
                 <div id="cpu-avatars-grid" class="flex flex-row-reverse gap-2 mt-2">
                     <div id="cpu-avatar" class="w-32 h-32 md:w-48 md:h-48 scale-x-[-1] transition-transform duration-300"></div>
                 </div>
@@ -789,8 +770,8 @@
                         <div class="w-12 h-12 mx-auto mb-2 bg-slate-700/50 rounded-full flex items-center justify-center" id="res-p-icon"></div>
                         <div class="space-y-1 text-[10px] text-left border-t border-slate-700/50 pt-2 mt-2">
                             <div class="flex justify-between"><span>Base:</span> <span id="res-p-base" class="font-mono text-white">0</span></div>
-                            <div class="flex justify-between text-slate-500" id="res-p-arena"><span>Arena:</span> <span>--</span></div>
-                            <div class="flex justify-between text-slate-500" id="res-p-color"><span>Cor:</span> <span>--</span></div>
+                            <div class="flex justify-between text-slate-500" id="res-p-bonus"><span>Bonus:</span> <span>--</span></div>
+                            <div class="flex justify-between text-slate-500" id="res-p-paint"><span>Pintura:</span> <span>--</span></div>
                         </div>
                         <div class="mt-2 pt-2 border-t border-slate-700 text-xl font-black text-green-400" id="res-p-final">0</div>
                     </div>
@@ -799,8 +780,8 @@
                         <div class="w-12 h-12 mx-auto mb-2 bg-slate-700/50 rounded-full flex items-center justify-center" id="res-c-icon"></div>
                         <div class="space-y-1 text-[10px] text-left border-t border-slate-700/50 pt-2 mt-2">
                             <div class="flex justify-between"><span>Base:</span> <span id="res-c-base" class="font-mono text-white">0</span></div>
-                            <div class="flex justify-between text-slate-500" id="res-c-arena"><span>Arena:</span> <span>--</span></div>
-                            <div class="flex justify-between text-slate-500" id="res-c-color"><span>Cor:</span> <span>--</span></div>
+                            <div class="flex justify-between text-slate-500" id="res-c-bonus"><span>Bonus:</span> <span>--</span></div>
+                            <div class="flex justify-between text-slate-500" id="res-c-paint"><span>Pintura:</span> <span>--</span></div>
                         </div>
                         <div class="mt-2 text-xl font-black text-red-400" id="res-c-final">0</div>
                     </div>
@@ -809,6 +790,51 @@
                 <p id="result-reason" class="text-slate-300 text-sm font-bold leading-relaxed mb-6">---</p>
                 <button onclick="window.app.resetGame()" class="w-full py-4 bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase rounded-xl shadow-lg active:scale-95 transition-transform" data-i18n="res-play-again">Jogar Novamente</button>
             </div>
+        </div>
+    </div>
+
+    <!-- FUSION SUCCESS OVERLAY - Nascimento Radiante -->
+    <div id="fusion-success-overlay" class="fixed inset-0 z-[200] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center hidden p-6 overflow-hidden">
+        <div id="fusion-flash-effect" class="absolute inset-0 bg-white z-10 opacity-0 pointer-events-none"></div>
+        
+        <!-- Raios de Luz em Background -->
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,215,0,0.15)_0%,_transparent_70%)] animate-pulse"></div>
+        
+        <div class="relative z-20 text-center scale-90 opacity-0 transition-all duration-700" id="fusion-result-content">
+            <div class="mb-2 text-yellow-500 font-black uppercase tracking-[0.3em] text-xs animate-pulse">Nascimento Radiante</div>
+            <h2 class="text-5xl md:text-7xl font-black text-white mb-8 italic tracking-tighter uppercase">FUSÃO COMPLETA!</h2>
+            
+            <div class="relative mb-12">
+                <!-- Aura Radiante -->
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-yellow-500/20 rounded-full blur-3xl animate-pulse"></div>
+                
+                <!-- O Galo Recém-Nascido -->
+                <div id="fusion-new-rooster-avatar" class="w-48 h-48 md:w-64 md:h-64 mx-auto relative z-10 drop-shadow-[0_0_30px_rgba(255,215,0,0.5)]"></div>
+                
+                <!-- Badge de Raridade -->
+                <div id="fusion-rarity-badge" class="absolute -top-4 -right-4 px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest shadow-2xl z-20 rotate-12">LEGENDARY</div>
+            </div>
+
+            <div class="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-6 mb-8 max-w-sm mx-auto text-left">
+                <div class="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
+                    <span class="text-slate-400 text-[10px] font-bold uppercase">DNA Code</span>
+                    <span id="fusion-dna-code" class="text-white font-mono font-bold tracking-widest">---</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-[8px] text-slate-500 font-black uppercase mb-1">Ataque</div>
+                        <div id="fusion-stat-atk" class="text-xl font-black text-red-400">0</div>
+                    </div>
+                    <div>
+                        <div class="text-[8px] text-slate-500 font-black uppercase mb-1">Vida Max</div>
+                        <div id="fusion-stat-hp" class="text-xl font-black text-green-400">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="window.app.closeFusionSuccess()" class="px-12 py-5 bg-gradient-to-r from-yellow-400 to-orange-600 text-black font-black text-xl uppercase tracking-[0.2em] rounded-2xl shadow-[0_10px_30px_rgba(255,165,0,0.3)] hover:scale-105 transition-transform active:scale-95">
+                GUARDAR NA MOCHILA
+            </button>
         </div>
     </div>
 
@@ -1008,6 +1034,8 @@
         import { MarketplaceService, AuctionEngine } from './js/marketplace.js';
         import { MissionService } from './js/missions.js';
         import { TournamentService } from './js/tournament.js';
+        import { BreedingService } from './js/breeding.js';
+        import { MatchLogService } from './js/matchLog.js';
         import { TeamService } from './js/team.js';
         import { AudioEngine } from './js/audio.js';
         import { renderAvatar } from './js/renderer.js';
@@ -1227,21 +1255,94 @@
                 renderAvatar(`breed-parent-${index}`, parent.element, parent.color, parent.dna?.skin || 'none');
                 updateBreedingUI();
             },
-            executeBreeding: () => {
+            executeBreeding: async () => {
                 const [p1, p2] = window.app.selectedBreedingParents;
                 if (!p1 || !p2) return alert("Selecione dois galos primeiro!");
                 
-                const res = BreedingService.breed(p1, p2);
-                if (res.success) {
-                    const skinMsg = res.rooster.dna.skin !== 'none' ? `\n\n✨ BÔNUS: Você desbloqueou o visual ${i18n.t('skin-' + res.rooster.dna.skin)}! ✨` : "";
-                    alert(`FUSÃO COMPLETA! Você criou um novo galo de DNA ${res.rooster.dna.rarity}!${skinMsg}`);
-                    window.app.selectedBreedingParents = [null, null];
-                    document.getElementById('breed-parent-1').innerHTML = '<i class="fas fa-plus text-slate-700 text-2xl"></i><div class="text-[8px] text-slate-600 font-black uppercase mt-2">Pai 1</div>';
-                    document.getElementById('breed-parent-2').innerHTML = '<i class="fas fa-plus text-slate-700 text-2xl"></i><div class="text-[8px] text-slate-600 font-black uppercase mt-2">Pai 2</div>';
-                    window.app.showScreen('inventory');
-                } else {
-                    alert("Falha na fusão: Saldo insuficiente!");
+                // Engenharia de UI: Desabilita botão durante o processo
+                const btn = document.getElementById('btn-breed-action');
+                const originalText = btn.innerText;
+                btn.disabled = true;
+                btn.innerText = "FUSIONANDO DNA...";
+
+                try {
+                    const res = await BreedingService.breed(p1, p2);
+                    if (res.success) {
+                        window.app.selectedBreedingParents = [null, null];
+                        document.getElementById('breed-parent-1').innerHTML = '<i class="fas fa-plus text-slate-700 text-2xl"></i><div class="text-[8px] text-slate-600 font-black uppercase mt-2">Pai 1</div>';
+                        document.getElementById('breed-parent-2').innerHTML = '<i class="fas fa-plus text-slate-700 text-2xl"></i><div class="text-[8px] text-slate-600 font-black uppercase mt-2">Pai 2</div>';
+                        
+                        // Orquestração Visual de Nascimento Radiante
+                        window.app.showFusionSuccess(res.rooster);
+                    } else {
+                        alert("Falha na fusão: Saldo insuficiente ou erro técnico!");
+                    }
+                } catch (err) {
+                    console.error("Erro crítico na fusão:", err);
+                    alert("Erro ao realizar fusão. Tente novamente.");
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                    updateBreedingUI();
                 }
+            },
+            showFusionSuccess: (rooster) => {
+                const overlay = document.getElementById('fusion-success-overlay');
+                const content = document.getElementById('fusion-result-content');
+                const flash = document.getElementById('fusion-flash-effect');
+                const badge = document.getElementById('fusion-rarity-badge');
+                
+                // Configura dados
+                document.getElementById('fusion-dna-code').innerText = rooster.dna.code;
+                document.getElementById('fusion-stat-atk').innerText = rooster.atk;
+                document.getElementById('fusion-stat-hp').innerText = rooster.hp_max;
+                
+                // Configura Badge de Raridade com cores dinâmicas
+                badge.innerText = rooster.dna.rarity;
+                const rarityClasses = {
+                    'legendary': 'bg-gradient-to-r from-yellow-400 to-orange-600 text-black animate-pulse ring-4 ring-yellow-500/50',
+                    'rare': 'bg-gradient-to-r from-purple-500 to-pink-600 text-white ring-2 ring-purple-400/50',
+                    'common': 'bg-slate-700 text-slate-300'
+                };
+                badge.className = `absolute -top-4 -right-4 px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest shadow-2xl z-20 rotate-12 ${rarityClasses[rooster.dna.rarity] || rarityClasses.common}`;
+
+                renderAvatar('fusion-new-rooster-avatar', rooster.element, rooster.color, rooster.dna.skin || 'none');
+                
+                // Inicia Sequência Visual Épica
+                overlay.classList.remove('hidden');
+                
+                // Som de transição atmosférica
+                AudioEngine.playTone(220, 'sine', 0.8, 0.1); 
+                
+                setTimeout(() => {
+                    // O Big Bang do Nascimento
+                    flash.classList.add('anim-flash');
+                    AudioEngine.playTone(440, 'triangle', 0.4, 0.3); // Impacto
+                    
+                    content.classList.remove('scale-90', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
+                    
+                    const avatarContainer = document.getElementById('fusion-new-rooster-avatar');
+                    avatarContainer.classList.add('anim-birth');
+                    
+                    setTimeout(() => {
+                        avatarContainer.classList.remove('anim-birth');
+                        avatarContainer.classList.add('anim-float');
+                        // Som triunfante final
+                        AudioEngine.playTone(660, 'sine', 0.5, 0.2);
+                    }, 1200);
+                }, 100);
+            },
+            closeFusionSuccess: () => {
+                const overlay = document.getElementById('fusion-success-overlay');
+                const content = document.getElementById('fusion-result-content');
+                
+                content.classList.add('scale-90', 'opacity-0');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    window.app.showScreen('inventory');
+                    updateInventoryUI();
+                }, 500);
             },
             buyRooster: async (el, col, price) => {
                 const res = await MarketplaceService.buyRooster(el, col, price);
