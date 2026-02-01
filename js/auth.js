@@ -15,14 +15,6 @@ export class Auth {
                     email: session.user.email 
                 };
                 
-                // Engenharia de Ponta: Verifica indicação pendente para logins sociais (Google)
-                const pendingRef = localStorage.getItem('pending_referral');
-                if (pendingRef) {
-                    const { ReferralService } = await import('./referral.js');
-                    const applied = await ReferralService.applyReferrer(pendingRef);
-                    if (applied) localStorage.removeItem('pending_referral');
-                }
-
                 await state.syncAll();
                 this.showMainGame();
             } else if (event === 'SIGNED_OUT') {
@@ -34,12 +26,6 @@ export class Auth {
     }
 
     static async checkSession() {
-        // Se for convidado, pula verificação do Supabase
-        if (state.gameData.user && state.gameData.user.isGuest) {
-            this.showMainGame();
-            return true;
-        }
-
         try {
             const { data: { session }, error } = await supabase.auth.getSession();
             
@@ -210,70 +196,8 @@ export class Auth {
         }
     }
 
-    static async loginWithGoogle() {
-        console.log("Iniciando fluxo de login com Google...");
-        try {
-            if (!supabase || !supabase.auth) {
-                throw new Error("Cliente Supabase não inicializado corretamente.");
-            }
-
-            const redirectUrl = window.location.origin + window.location.pathname;
-            console.log("URL de redirecionamento configurada:", redirectUrl);
-
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: redirectUrl,
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'consent',
-                    }
-                }
-            });
-
-            if (error) {
-                console.error("Erro retornado pelo Supabase OAuth:", error.status, error.message);
-                
-                if (error.message.includes("provider is not enabled")) {
-                    alert("❌ Provedor Google não está ativado no Supabase.\n\nComo arquiteto, recomendo ir em Authentication > Providers e ativar o Google com seu Client ID e Secret.");
-                    return { success: false, error: "Provedor desativado." };
-                }
-
-                if (error.status === 500 || error.message.includes("Database error")) {
-                    throw new Error("Erro de servidor (500) ao processar login Google. Verifique se a Trigger de perfil está funcionando corretamente no Supabase.");
-                }
-                throw error;
-            }
-            
-            console.log("Redirecionando para o provedor Google...");
-            return { success: true };
-        } catch (err) {
-            console.error("Falha crítica no Login Google:", err.message);
-            alert("Erro no Login Google: " + err.message + "\n\nSugestão: Verifique se o provedor está ativo e se a trigger SQL de novos usuários está correta.");
-            return { success: false, error: err.message };
-        }
-    }
-
-    static async loginAsGuest() {
-        const guestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        state.gameData.user = { 
-            id: guestId, 
-            name: 'Convidado ' + Math.floor(Math.random() * 1000), 
-            email: 'guest@local.dev',
-            isGuest: true
-        };
-        
-        // Reset basic data for guest to ensure clean slate or keep local progress
-        if (!state.gameData.balance) state.gameData.balance = 1000;
-        
-        i18n.setLanguage(state.gameData.settings.lang || 'pt-BR');
-        state.save();
-        this.showMainGame();
-        return { success: true };
-    }
-
     static async logout() {
-        if (state.gameData.user && !state.gameData.user.isGuest) {
+        if (state.gameData.user) {
             await supabase.auth.signOut();
         }
         state.gameData.user = null;

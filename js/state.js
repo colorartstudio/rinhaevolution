@@ -69,8 +69,11 @@ class State {
         };
         this.player = { element: null, color: null };
         this.cpu = { element: null, color: null };
+        this.cpuTeam = [];
+        this.gameMode = '1v1';
         this.currentArena = null;
         this.currentBet = 100;
+        this.battleResult = null; // Armazena o resultado vindo da RPC do Supabase
         this.load();
     }
 

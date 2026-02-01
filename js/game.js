@@ -88,7 +88,14 @@ export function selectBet(amount) {
     });
 }
 
-export function checkBalanceAndStart() {
+export async function checkBalanceAndStart() {
+    // Engenharia de Segurança: Login Obrigatório para Batalhas
+    if (!state.gameData.user || !state.gameData.user.id) {
+        alert("Você precisa estar logado para iniciar uma batalha!");
+        window.app.showLogin();
+        return;
+    }
+
     if (state.gameMode === '3v3') {
         const team = TeamService.getTeamRoosters();
         if (team.length < 3) {
@@ -102,31 +109,61 @@ export function checkBalanceAndStart() {
         toggleModal('wallet-modal');
         return;
     }
-    state.gameData.balance -= state.currentBet;
-    showFloatingText(document.getElementById('btn-start'), `-${state.currentBet}`, 'center', false);
-    state.save();
-    updateBalanceUI();
-    
-    // Random CPU
-    const elKeys = Object.keys(ELEMENTS);
-    const colKeys = Object.keys(COLORS);
-    
-    if (state.gameMode === '3v3') {
-        state.cpuTeam = [
-            state.constructor.createRooster(elKeys[Math.floor(Math.random()*4)], colKeys[Math.floor(Math.random()*4)], 1),
-            state.constructor.createRooster(elKeys[Math.floor(Math.random()*4)], colKeys[Math.floor(Math.random()*4)], 1),
-            state.constructor.createRooster(elKeys[Math.floor(Math.random()*4)], colKeys[Math.floor(Math.random()*4)], 1)
-        ];
-    } else {
-        state.cpu.element = elKeys[Math.floor(Math.random() * elKeys.length)];
-        state.cpu.color = colKeys[Math.floor(Math.random() * colKeys.length)];
+
+    // Bloqueia o botão para evitar cliques múltiplos
+    const btnStart = document.getElementById('btn-start');
+    if (btnStart) {
+        btnStart.disabled = true;
+        btnStart.innerText = "PROCESSANDO...";
     }
 
-    startRouletteSequence();
+    // Chamada antecipada para o Backend (Supabase RPC)
+    try {
+        const { supabase } = await import('./supabase.js');
+        
+        // Chamada da RPC que processa RNG e Economia no servidor
+        const { data, error } = await supabase.rpc('process_evolution_battle', {
+            p_player_id: state.gameData.user.id,
+            p_element: state.player.element,
+            p_color: state.player.color,
+            p_bet_amount: state.currentBet,
+            p_game_mode: state.gameMode || '1v1'
+        });
+
+        if (error) throw error;
+
+        // Armazena o resultado oficial do servidor
+        state.battleResult = data;
+        console.log("Resultado oficial do servidor recebido:", data);
+
+        // Atualiza dados locais com base no retorno do servidor
+        state.gameData.balance = data.financial.newBalance;
+        state.cpu.element = data.cpu.element;
+        state.cpu.color = data.cpu.color;
+        state.cpuTeam = data.cpuTeam || [];
+        
+        // Encontra a arena sorteada pelo servidor nas arenas locais
+        const serverArenaId = data.arena; // 'fire', 'earth', etc.
+        state.currentArena = ARENAS.find(a => a.id === serverArenaId) || ARENAS[0];
+
+        // Inicia a sequência visual (roleta e luta)
+        startRouletteSequence();
+
+    } catch (err) {
+        console.error("Erro ao processar batalha no servidor:", err);
+        alert("Erro de conexão com o servidor. Verifique seu saldo e tente novamente.");
+        if (btnStart) {
+            btnStart.disabled = false;
+            btnStart.innerText = i18n.t('sel-search');
+        }
+    }
 }
 
 export function startRouletteSequence() {
-    state.currentArena = ARENAS[Math.floor(Math.random() * ARENAS.length)];
+    // state.currentArena já foi definido pelo servidor na função checkBalanceAndStart
+    if (!state.currentArena) {
+        state.currentArena = ARENAS[Math.floor(Math.random() * ARENAS.length)];
+    }
 
     document.getElementById('screen-selection').classList.add('hidden');
     document.getElementById('screen-battle').classList.remove('hidden');
@@ -195,13 +232,25 @@ function startGame() {
             pGrid.appendChild(div);
             renderAvatar(`player-avatar-${i}`, gal.element, gal.color);
         });
-        state.cpuTeam.forEach((gal, i) => {
-            const div = document.createElement('div');
-            div.id = `cpu-avatar-${i}`;
-            div.className = "w-24 h-24 scale-x-[-1] transition-transform duration-300";
-            cGrid.appendChild(div);
-            renderAvatar(`cpu-avatar-${i}`, gal.element, gal.color);
-        });
+
+        if (state.cpuTeam && state.cpuTeam.length > 0) {
+            state.cpuTeam.forEach((gal, i) => {
+                const div = document.createElement('div');
+                div.id = `cpu-avatar-${i}`;
+                div.className = "w-24 h-24 scale-x-[-1] transition-transform duration-300";
+                cGrid.appendChild(div);
+                renderAvatar(`cpu-avatar-${i}`, gal.element, gal.color);
+            });
+        } else {
+            // Fallback caso cpuTeam esteja vazio (não deveria acontecer com a nova RPC)
+            for (let i = 0; i < 3; i++) {
+                const div = document.createElement('div');
+                div.id = `cpu-avatar-${i}`;
+                div.className = "w-24 h-24 scale-x-[-1] transition-transform duration-300";
+                cGrid.appendChild(div);
+                renderAvatar(`cpu-avatar-${i}`, state.cpu.element, state.cpu.color);
+            }
+        }
     } else {
         const pDiv = document.createElement('div');
         pDiv.id = 'player-avatar';
@@ -295,7 +344,11 @@ async function showPlayerSkills(rooster) {
             cleanupTimer();
             // Auto-select first affordable skill or just first skill
             const defaultSkill = skills.find(s => s.cost <= rooster.energy) || skills[0];
-            handleSkillClick(defaultSkill.id);
+            if (defaultSkill) {
+                handleSkillClick(defaultSkill.id);
+            } else {
+                handleSkillClick('f1'); // Fallback absoluto
+            }
         }
     }, 1000);
 
@@ -353,6 +406,16 @@ async function battleSequence() {
     let round = 1;
     const MAX_ROUNDS = 8;
 
+    // Engenharia de Animação: Se temos o resultado do servidor, calculamos o dano por turno para sincronizar
+    let dmgPerRoundC = Math.round(cRooster.hp_max / MAX_ROUNDS);
+    let dmgPerRoundP = Math.round(pRooster.hp_max / MAX_ROUNDS);
+    
+    // Ajuste fino para garantir KO no round certo se houver vencedor
+    if (state.battleResult) {
+        if (state.battleResult.result === 'WIN') dmgPerRoundC = Math.ceil(cRooster.hp_max / (MAX_ROUNDS - 1));
+        if (state.battleResult.result === 'LOSS') dmgPerRoundP = Math.ceil(pRooster.hp_max / (MAX_ROUNDS - 1));
+    }
+
     while (pHP > 0 && cHP > 0 && round <= MAX_ROUNDS) {
         // Energy Regen per turn
         pRooster.energy = Math.min(pRooster.energy_max || 100, pRooster.energy + 20);
@@ -370,11 +433,15 @@ async function battleSequence() {
                 updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max);
 
                 const advDmg = calculateAdvancedDamage(pRooster.atk, skill.multiplier, pRooster.level, state.currentArena, pRooster.element, pRooster.color, cStatus);
-                let dmgC = Math.round(advDmg.value * cStatus.shield * (1 / cStatus.def));
+                let dmgC = 0;
                 
-                // Engenharia Avançada: Se for Empate, equilibramos o dano para terminar junto
-                if (isTieBattle) dmgC = Math.round(cRooster.hp_max / MAX_ROUNDS);
-                else dmgC = Math.max(1, Math.round(dmgC * 0.12)); // Redutor ajustado para ~15s de luta
+                if (state.battleResult) {
+                    dmgC = dmgPerRoundC;
+                } else if (isTieBattle) {
+                    dmgC = Math.round(cRooster.hp_max / MAX_ROUNDS);
+                } else {
+                    dmgC = Math.max(1, Math.round(advDmg.value * cStatus.shield * (1 / cStatus.def) * 0.12));
+                }
 
                 cStatus.shield = 1;
 
@@ -449,10 +516,15 @@ async function battleSequence() {
             updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max);
 
             const advDmgP = calculateAdvancedDamage(cRooster.atk, cSkill.multiplier, cRooster.level, state.currentArena, cRooster.element, cRooster.color, pStatus);
-            let dmgP = Math.round(advDmgP.value * pStatus.shield * (1 / pStatus.def));
+            let dmgP = 0;
             
-            if (isTieBattle) dmgP = Math.round(pRooster.hp_max / MAX_ROUNDS);
-            else dmgP = Math.max(1, Math.round(dmgP * 0.12));
+            if (state.battleResult) {
+                dmgP = dmgPerRoundP;
+            } else if (isTieBattle) {
+                dmgP = Math.round(pRooster.hp_max / MAX_ROUNDS);
+            } else {
+                dmgP = Math.max(1, Math.round(advDmgP.value * pStatus.shield * (1 / pStatus.def) * 0.12));
+            }
 
             pStatus.shield = 1;
 
@@ -493,7 +565,9 @@ async function battleSequence() {
     }
 
     let result = 'loss';
-    if (isTieBattle || (pHP <= 0 && cHP <= 0) || (round > MAX_ROUNDS && pHP === cHP)) {
+    if (state.battleResult) {
+        result = state.battleResult.result.toLowerCase();
+    } else if (isTieBattle || (pHP <= 0 && cHP <= 0) || (round > MAX_ROUNDS && pHP === cHP)) {
         result = 'tie';
     } else if (pHP > cHP) {
         result = 'win';
@@ -523,20 +597,33 @@ async function battleSequence() {
     await sleep(2500); 
     
     // Recalcular bônus para o relatório (Regra Geral: Elemento, Cor e Arena)
-    const arenaBonus = state.currentArena.bonusElement === pRooster.element ? 1.25 : 1;
-    const colorBonus = state.currentArena.color === pRooster.color ? 1.30 : 1;
-    
-    const pTotal = Math.floor((pRooster.atk || 100) * arenaBonus * colorBonus);
-    
-    const cArenaBonus = state.currentArena.bonusElement === cRooster.element ? 1.25 : 1;
-    const cColorBonus = state.currentArena.color === cRooster.color ? 1.30 : 1;
-    const cTotal = Math.floor((cRooster.atk || 100) * cArenaBonus * cColorBonus);
+    let pTotal = 0;
+    let cTotal = 0;
+    let report = {};
 
-    const report = { 
-        arena: i18n.t(`arena-${state.currentArena.id}`), 
-        p: { base: pRooster.atk || 100, final: pTotal, arena: arenaBonus > 1, color: colorBonus > 1 }, 
-        c: { base: cRooster.atk || 100, final: cTotal, arena: cArenaBonus > 1, color: cColorBonus > 1 } 
-    };
+    if (state.battleResult) {
+        pTotal = state.battleResult.scores.player;
+        cTotal = state.battleResult.scores.cpu;
+        report = { 
+            arena: i18n.t(`arena-${state.battleResult.arena}`), 
+            p: { base: ELEMENTS[pRooster.element].base, final: pTotal, arena: pRooster.element === state.battleResult.arena, color: false /* Cor counter é complexo no report, deixamos simplificado */ }, 
+            c: { base: ELEMENTS[state.cpu.element].base, final: cTotal, arena: state.cpu.element === state.battleResult.arena, color: false } 
+        };
+    } else {
+        const arenaBonus = state.currentArena.bonusElement === pRooster.element ? 1.25 : 1;
+        const colorBonus = state.currentArena.color === pRooster.color ? 1.30 : 1;
+        pTotal = Math.floor((pRooster.atk || 100) * arenaBonus * colorBonus);
+        
+        const cArenaBonus = state.currentArena.bonusElement === cRooster.element ? 1.25 : 1;
+        const cColorBonus = state.currentArena.color === cRooster.color ? 1.30 : 1;
+        cTotal = Math.floor((cRooster.atk || 100) * cArenaBonus * cColorBonus);
+
+        report = { 
+            arena: i18n.t(`arena-${state.currentArena.id}`), 
+            p: { base: pRooster.atk || 100, final: pTotal, arena: arenaBonus > 1, color: colorBonus > 1 }, 
+            c: { base: cRooster.atk || 100, final: cTotal, arena: cArenaBonus > 1, color: cColorBonus > 1 } 
+        };
+    }
     
     showDetailedResult(winValue, report);
 }
@@ -563,6 +650,15 @@ async function battleSequence3v3() {
         const pGal = pTeam[pIdx];
         const cGal = cTeam[cIdx];
         
+        // Robustez: Garantir atributos para CPU e Player
+        pGal.level = pGal.level || 1;
+        pGal.atk = pGal.atk || 100;
+        pGal.energy_max = pGal.energy_max || 100;
+        
+        cGal.level = cGal.level || 1;
+        cGal.atk = cGal.atk || 100;
+        cGal.energy_max = cGal.energy_max || 100;
+        
         const pAv = document.getElementById(`player-avatar-${pIdx}`);
         const cAv = document.getElementById(`cpu-avatar-${cIdx}`);
 
@@ -577,11 +673,11 @@ async function battleSequence3v3() {
         // --- PLAYER TURN ---
         const action = await showPlayerSkills(pGal);
         if (action.type === 'skill') {
-            const skill = SKILLS[pGal.element].find(s => s.id === action.id);
-            pGal.energy -= skill.cost;
+            const skill = SKILLS[pGal.element]?.find(s => s.id === action.id) || SKILLS.fire[0];
+            pGal.energy -= (skill.cost || 0);
             updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
 
-            const advDmg = calculateAdvancedDamage(pGal.atk, skill.multiplier, pGal.level, state.currentArena, pGal.element, pGal.color, cStatus);
+            const advDmg = calculateAdvancedDamage(pGal.atk, skill.multiplier || 1, pGal.level, state.currentArena, pGal.element, pGal.color, cStatus);
             let dmgC = advDmg.value;
             
             if (isTieBattle) dmgC = Math.round(300 / rounds);
@@ -629,6 +725,12 @@ async function battleSequence3v3() {
         const affordableSkills = cSkills.filter(s => s.cost <= cGal.energy);
         const cSkill = affordableSkills.length > 0 ? affordableSkills[Math.floor(Math.random() * affordableSkills.length)] : cSkills[0];
         
+        if (!cSkill) {
+            console.warn("CPU sem habilidades disponíveis para o nível", cGal.level);
+            await sleep(1000);
+            continue; 
+        }
+
         cGal.energy -= cSkill.cost;
         updateEnergy('c-en-bar', cGal.energy, cGal.energy_max);
 
@@ -817,7 +919,7 @@ async function saveMatchResult(win, pEl, pCol) {
     }
     
     // Sync with Supabase RPC
-    if (state.gameData.user && state.gameData.user.id) {
+    if (state.gameData.user && state.gameData.user.id && !state.battleResult) {
         try {
             const { supabase } = await import('./supabase.js');
             
