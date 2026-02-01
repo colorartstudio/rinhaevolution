@@ -36,9 +36,11 @@ body {
 /* Mobile specific fixes */
 @media (max-width: 768px) {
     body {
-        height: 100dvh;
-        overflow: hidden;
-        position: fixed;
+        min-height: 100svh;
+        height: auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+        position: static;
         width: 100%;
     }
 }
@@ -59,7 +61,7 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
     margin: 0 auto;
     padding: var(--spacing-md);
     /* Dynamic padding based on fixed elements */
-    padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom) + 100px);
+    padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom) + 24px);
 }
 
 /* Container for fixed action buttons at bottom */
@@ -83,11 +85,16 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
 }
 
 #bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--safe-area-bottom) + 8px);
     height: calc(var(--nav-height) + var(--safe-area-bottom));
     padding-bottom: var(--safe-area-bottom);
-    z-index: 100;
+    z-index: 999;
     background: rgba(2, 6, 23, 0.95);
     backdrop-filter: blur(12px);
+    box-shadow: 0 -6px 20px rgba(0,0,0,0.6);
 }
 
 /* --- UTILS --- */
@@ -240,8 +247,8 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
 }
 
 #bottom-nav {
-    height: 64px;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(var(--nav-height) + var(--safe-area-bottom));
+    padding-bottom: var(--safe-area-bottom);
 }
 
 /* Nascimento Radiante - Engenharia de Design */
