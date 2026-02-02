@@ -22,20 +22,47 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none') {
 
     const tailFill1 = elData.tailColor1; 
     const tailFill2 = elData.tailColor2;
-    let tailPath = ""; 
-    let anim = "";
+    
+    // --- Sistema de Cauda Profissional (Penas em Camadas) ---
+    let tailGroup = "";
+    let tailAnim = "";
 
     if (type === 'fire') {
-        tailPath = `<path d="M60,180 C30,140 10,80 70,60 C80,30 110,10 140,50 C160,10 200,30 180,90 C220,80 230,130 190,160 L140,190 Z" fill="url(#gradTail-${containerId})" filter="url(#glow-${containerId})"/>`;
-        anim = `<animate attributeName="d" dur="0.2s" repeatCount="indefinite" values="M60,180 C30,140 10,80 70,60 C80,30 110,10 140,50 C160,10 200,30 180,90 C220,80 230,130 190,160 L140,190 Z; M60,180 C35,145 15,85 75,65 C85,35 115,15 140,50 C160,15 200,35 185,95 C220,85 230,130 190,160 L140,190 Z; M60,180 C30,140 10,80 70,60 C80,30 110,10 140,50 C160,10 200,30 180,90 C220,80 230,130 190,160 L140,190 Z"/>`;
+        tailGroup = `
+            <g class="tail-feathers">
+                <path d="M70,180 C20,150 -10,80 60,40 C70,60 80,100 100,140 Z" fill="url(#gradTail-${containerId})">
+                    <animate attributeName="d" dur="0.8s" repeatCount="indefinite" values="M70,180 C20,150 -10,80 60,40 C70,60 80,100 100,140 Z; M70,180 C15,145 -15,75 55,35 C65,55 75,95 100,140 Z; M70,180 C20,150 -10,80 60,40 C70,60 80,100 100,140 Z" />
+                </path>
+                <path d="M80,180 C40,130 20,40 100,20 C110,50 120,90 130,140 Z" fill="url(#gradTail-${containerId})" opacity="0.8">
+                    <animate attributeName="d" dur="1s" repeatCount="indefinite" values="M80,180 C40,130 20,40 100,20 C110,50 120,90 130,140 Z; M80,180 C35,125 15,35 105,15 C115,45 125,85 130,140 Z; M80,180 C40,130 20,40 100,20 C110,50 120,90 130,140 Z" />
+                </path>
+                <path d="M90,180 C60,110 50,20 140,40 C140,70 140,110 140,160 Z" fill="url(#gradTail-${containerId})" opacity="0.6">
+                    <animate attributeName="d" dur="1.2s" repeatCount="indefinite" values="M90,180 C60,110 50,20 140,40 C140,70 140,110 140,160 Z; M90,180 C55,105 45,15 145,35 C145,65 145,105 140,160 Z; M90,180 C60,110 50,20 140,40 C140,70 140,110 140,160 Z" />
+                </path>
+            </g>`;
     } else if (type === 'water') {
-        tailPath = `<path d="M50,180 C30,120 80,120 60,80 C50,40 100,50 120,20 C140,60 180,40 180,100 C180,150 160,160 140,190 Z" fill="url(#gradTail-${containerId})" stroke="${darkColor}" stroke-width="2"/>`;
-        anim = `<animateTransform attributeName="transform" type="skewX" values="0;3;0" dur="2s" repeatCount="indefinite" />`;
+        tailGroup = `
+            <g class="tail-feathers">
+                <path d="M70,180 C30,160 20,100 80,60 C90,80 100,120 110,150 Z" fill="url(#gradTail-${containerId})" stroke="${darkColor}" stroke-width="1"/>
+                <path d="M85,185 C50,140 40,60 110,40 C120,70 130,110 135,160 Z" fill="url(#gradTail-${containerId})" opacity="0.7" stroke="${darkColor}" stroke-width="1"/>
+                <path d="M100,190 C70,130 80,40 150,60 C150,90 150,130 140,170 Z" fill="url(#gradTail-${containerId})" opacity="0.5" stroke="${darkColor}" stroke-width="1"/>
+                <animateTransform attributeName="transform" type="translate" values="0,0; 2,0; 0,0" dur="2s" repeatCount="indefinite" />
+            </g>`;
     } else if (type === 'earth') {
-        tailPath = `<path d="M60,180 L40,120 L70,100 L80,50 L120,80 L150,40 L160,100 L140,190 Z" fill="${tailFill1}" stroke="#2e2e2e" stroke-width="2"/>`;
+        tailGroup = `
+            <g class="tail-feathers">
+                <path d="M70,180 L30,120 L60,80 L100,140 Z" fill="${tailFill1}" stroke="#2e2e2e" stroke-width="2"/>
+                <path d="M80,180 L50,80 L90,40 L120,140 Z" fill="${tailFill2}" stroke="#2e2e2e" stroke-width="2"/>
+                <path d="M95,180 L80,40 L130,20 L145,150 Z" fill="${tailFill1}" stroke="#2e2e2e" stroke-width="2"/>
+            </g>`;
     } else if (type === 'air') {
-        tailPath = `<path d="M80,180 C40,160 20,120 60,100 C40,60 80,40 100,70 C120,30 160,40 150,90 C180,100 170,150 140,180 Z" fill="${tailFill1}" opacity="0.8"/>`;
-        anim = `<animateTransform attributeName="transform" type="translate" values="0,0; 0,-5; 0,0" dur="3s" repeatCount="indefinite" />`;
+        tailGroup = `
+            <g class="tail-feathers">
+                <path d="M70,180 C20,160 10,100 70,80 C80,100 90,130 100,160 Z" fill="${tailFill1}" opacity="0.6"/>
+                <path d="M85,180 C40,140 30,60 110,50 C120,80 130,110 135,160 Z" fill="${tailFill2}" opacity="0.4"/>
+                <path d="M100,180 C70,120 80,30 150,50 C150,80 150,120 140,170 Z" fill="${tailFill1}" opacity="0.2"/>
+                <animateTransform attributeName="transform" type="translate" values="0,0; 0,-8; 0,0" dur="4s" repeatCount="indefinite" />
+            </g>`;
     }
 
     const svg = `
@@ -55,18 +82,56 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none') {
             </filter>
         </defs>
         <g>
-            ${anim ? `<g>${tailPath}${anim}</g>` : tailPath}
-            <path d="M100,100 C80,80 130,50 160,60 C190,70 210,110 190,160 C170,210 130,220 90,200 C70,180 60,140 100,100" fill="url(#gradBody-${containerId})" stroke="#1e293b" stroke-width="2"/>
-            <path d="M120,130 C120,130 170,110 180,160 C150,180 130,160 120,130" fill="${darkColor}" stroke="#1e293b" stroke-width="2"/>
-            <g transform="translate(140, 50)">
-                <path d="M0,30 C-10,0 20,-10 30,10 C40,-5 60,20 40,40" fill="#dc2626" stroke="black" stroke-width="2"/>
-                <circle cx="20" cy="35" r="30" fill="url(#gradBody-${containerId})" stroke="#1e293b" stroke-width="2"/>
-                <path d="M45,30 L65,35 L45,45 Z" fill="#ffd700" stroke="black" stroke-width="1"/>
-                <path d="M25,25 L40,30" stroke="black" stroke-width="3" stroke-linecap="round"/>
-                <circle cx="30" cy="35" r="4" fill="black"/>
+            <!-- Cauda de Galo Profissional -->
+            ${tailGroup}
+
+            <!-- Corpo Anatômico do Galo -->
+            <path d="M100,100 
+                     C80,80 130,45 170,60 
+                     C210,75 220,120 200,170 
+                     C180,220 130,235 90,210 
+                     C65,190 60,140 100,100" 
+                  fill="url(#gradBody-${containerId})" stroke="#0f172a" stroke-width="2.5"/>
+            
+            <!-- Detalhe da Asa -->
+            <path d="M125,135 C125,135 175,115 185,165 C155,185 130,170 125,135" 
+                  fill="${darkColor}" opacity="0.8" stroke="#0f172a" stroke-width="1.5"/>
+            <path d="M140,145 C140,145 170,130 175,160 C155,175 140,165 140,145" 
+                  fill="rgba(0,0,0,0.2)" stroke="none"/>
+
+            <!-- Cabeça de Elite -->
+            <g transform="translate(155, 45)">
+                <!-- Crista de Galo Realista -->
+                <path d="M-10,25 C-25,-5 -10,-15 5,5 C10,-15 30,-15 35,10 C45,-10 65,0 55,30 C50,45 20,45 10,40" 
+                      fill="#ef4444" stroke="#7f1d1d" stroke-width="2"/>
+                
+                <!-- Barbela -->
+                <path d="M25,55 C20,75 40,75 35,55" fill="#ef4444" stroke="#7f1d1d" stroke-width="1.5"/>
+                
+                <!-- Rosto -->
+                <circle cx="25" cy="40" r="32" fill="url(#gradBody-${containerId})" stroke="#0f172a" stroke-width="2.5"/>
+                
+                <!-- Bico Forte -->
+                <path d="M52,35 L75,42 L52,52 Z" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/>
+                <path d="M52,42 L65,42" stroke="#b45309" stroke-width="1" opacity="0.5"/>
+                
+                <!-- Olho Expressivo -->
+                <circle cx="35" cy="38" r="7" fill="white"/>
+                <circle cx="37" cy="38" r="4" fill="black"/>
+                <circle cx="38" cy="36" r="1.5" fill="white"/>
+                <path d="M28,30 L45,34" stroke="black" stroke-width="3" stroke-linecap="round"/>
             </g>
-            <path d="M120,210 L120,250 L100,260 M120,250 L140,260" stroke="#ffd700" stroke-width="6" stroke-linecap="round" fill="none"/>
-            <path d="M160,200 L160,240 L140,250 M160,240 L180,250" stroke="#ffd700" stroke-width="6" stroke-linecap="round" fill="none"/>
+
+            <!-- Patas com Esporas -->
+            <g stroke="#f59e0b" stroke-width="6" stroke-linecap="round" fill="none">
+                <!-- Pata Esquerda -->
+                <path d="M125,220 L125,260 L105,270 M125,260 L145,270"/>
+                <path d="M125,245 L115,245" stroke-width="3"/> <!-- Espora -->
+                
+                <!-- Pata Direita -->
+                <path d="M165,210 L165,250 L145,260 M165,250 L185,260"/>
+                <path d="M165,235 L155,235" stroke-width="3"/> <!-- Espora -->
+            </g>
         </g>
     </svg>
     `;
