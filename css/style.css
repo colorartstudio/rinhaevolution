@@ -29,8 +29,6 @@ body {
     flex-direction: column;
     overflow-x: hidden;
     background-color: #020617;
-    /* Containment for mobile fixes */
-    contain: layout size style;
 }
 
 /* Mobile specific fixes */
@@ -88,13 +86,17 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(var(--safe-area-bottom) + 8px);
-    height: calc(var(--nav-height) + var(--safe-area-bottom));
-    padding-bottom: var(--safe-area-bottom);
+    bottom: 0;
+    height: auto;
+    min-height: var(--nav-height);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
     z-index: 999;
     background: rgba(2, 6, 23, 0.95);
     backdrop-filter: blur(12px);
     box-shadow: 0 -6px 20px rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
 }
 
 /* --- UTILS --- */
@@ -244,11 +246,6 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
     border-radius: 999px;
     padding: 0.25rem;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-#bottom-nav {
-    height: calc(var(--nav-height) + var(--safe-area-bottom));
-    padding-bottom: var(--safe-area-bottom);
 }
 
 /* Nascimento Radiante - Engenharia de Design */

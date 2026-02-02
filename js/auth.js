@@ -111,12 +111,12 @@ export class Auth {
                 // Engenharia Avançada: Se for erro 500, pode ser a trigger de perfil.
                 // Mas a conta de AUTH pode ter sido criada. Tentamos avisar o usuário.
                 if (error.status === 500 || error.message.includes("Database error")) {
-                    throw new Error("Erro de servidor (500). Verifique a configuração da Trigger no Supabase ou tente fazer login direto se já confirmou o e-mail.");
+                    throw new Error(i18n.t('auth-error-server-500'));
                 }
                 throw error;
             }
 
-            if (!data.user) throw new Error("Falha ao obter dados do usuário após registro.");
+            if (!data.user) throw new Error(i18n.t('auth-error-no-user'));
 
             console.log("Usuário criado com sucesso no Supabase. ID:", data.user.id);
             state.gameData.user = { 
@@ -144,9 +144,9 @@ export class Auth {
             console.error("Erro capturado na função Auth.register:", err);
             let userMsg = err.message;
             if (err.message.includes("Database error")) {
-                userMsg = "Erro no Banco de Dados: O Supabase falhou ao salvar o perfil. Verifique as Triggers SQL no painel.";
+                userMsg = i18n.t('auth-error-db');
             }
-            alert("Erro ao cadastrar: " + userMsg);
+            alert(i18n.t('auth-error-reg-prefix') + userMsg);
             return { success: false, error: err.message };
         }
     }
@@ -164,7 +164,7 @@ export class Auth {
                 
                 // Engenharia Avançada: Tratamento específico para e-mail não confirmado
                 if (error.message.includes("Email not confirmed")) {
-                    alert("⚠️ Seu e-mail ainda não foi confirmado. Por favor, verifique sua caixa de entrada ou entre em contato com o suporte.");
+                    alert(i18n.t('auth-error-email-unconfirmed'));
                     return { success: false, error: "E-mail não confirmado." };
                 }
 
@@ -187,9 +187,9 @@ export class Auth {
             return { success: true };
         } catch (err) {
             console.error("Erro capturado na função Auth.login:", err);
-            let msg = "Falha ao entrar.";
+            let msg = i18n.t('auth-error-login-failed');
             if (err.message.includes("Invalid login credentials")) {
-                msg = "Email ou senha incorretos.";
+                msg = i18n.t('auth-error-invalid-credentials');
             }
             alert(msg);
             return { success: false, error: err.message };

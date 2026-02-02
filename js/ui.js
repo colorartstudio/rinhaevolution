@@ -133,7 +133,7 @@ export async function updateLeaderboardUI() {
 
         listEl.innerHTML = '';
         if (topPlayers.length === 0) {
-            listEl.innerHTML = '<div class="p-10 text-center text-slate-500">Nenhum jogador encontrado.</div>';
+            listEl.innerHTML = `<div class="p-10 text-center text-slate-500">${i18n.t('lead-no-players')}</div>`;
             return;
         }
 
@@ -153,7 +153,7 @@ export async function updateLeaderboardUI() {
                     </div>
                     <div class="flex flex-col">
                         <span class="text-sm font-bold text-white">${player.username}</span>
-                        <span class="text-[8px] text-slate-500 uppercase tracking-tighter">${player.wins} vitórias</span>
+                        <span class="text-[8px] text-slate-500 uppercase tracking-tighter">${player.wins} ${i18n.t('lead-wins-suffix')}</span>
                     </div>
                 </div>
                 <div class="col-span-4 text-right">
@@ -175,8 +175,8 @@ export function updatePreview() {
         const statBaseEl = document.getElementById('preview-stat-base');
         const statTypeEl = document.getElementById('preview-stat-type');
         if (nameEl) nameEl.innerText = i18n.t(`el-${elData.id}`);
-        if (statBaseEl) statBaseEl.innerText = `FORÇA: ${elData.base}`;
-        if (statTypeEl) statTypeEl.innerText = `TIPO: ${elData.desc}`;
+        if (statBaseEl) statBaseEl.innerText = `${i18n.t('sel-preview-strength')}: ${elData.base}`;
+        if (statTypeEl) statTypeEl.innerText = `${i18n.t('sel-preview-type')}: ${i18n.t(`el-${elData.id}`).toUpperCase()}`;
     }
     if (state.player.element && state.player.color) {
         const btn = document.getElementById('btn-start');
@@ -198,9 +198,9 @@ export async function updateShopUI() {
             div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-yellow-500/50 transition-all';
             div.innerHTML = `
                 <div class="text-2xl mb-1">${item.icon}</div>
-                <div class="text-[8px] xs:text-[9px] font-black text-white uppercase text-center leading-tight h-6 flex items-center">${item.name}</div>
+                <div class="text-[8px] xs:text-[9px] font-black text-white uppercase text-center leading-tight h-6 flex items-center">${i18n.t(item.nameKey)}</div>
                 <div class="text-xs font-mono font-bold text-yellow-400">${item.price} RC</div>
-                <button onclick="window.app.buyItem('${item.id}', ${item.price})" class="w-full py-2 bg-slate-800 text-yellow-500 text-[9px] font-black uppercase rounded-lg border border-yellow-500/30 active:scale-95 transition-all">Comprar</button>
+                <button onclick="window.app.buyItem('${item.id}', ${item.price})" class="w-full py-2 bg-slate-800 text-yellow-500 text-[9px] font-black uppercase rounded-lg border border-yellow-500/30 active:scale-95 transition-all">${i18n.t('shop-buy-btn')}</button>
             `;
             combatList.appendChild(div);
         });
@@ -216,7 +216,7 @@ export async function updateShopUI() {
                 <div class="w-16 h-16 xs:w-20 xs:h-20" id="shop-item-${item.id}"></div>
                 <div class="text-[10px] font-black text-white uppercase">${i18n.t(`el-${item.element}`)}</div>
                 <div class="text-base font-mono font-bold text-yellow-400">${item.price} RC</div>
-                <button onclick="window.app.buyRooster('${item.element}', '${item.color}', ${item.price})" class="w-full py-2 bg-yellow-500 text-black text-[9px] font-black uppercase rounded-lg active:scale-95 transition-all">Comprar</button>
+                <button onclick="window.app.buyRooster('${item.element}', '${item.color}', ${item.price})" class="w-full py-2 bg-yellow-500 text-black text-[9px] font-black uppercase rounded-lg active:scale-95 transition-all">${i18n.t('shop-buy-btn')}</button>
             `;
             shopList.appendChild(div);
             renderAvatar(`shop-item-${item.id}`, item.element, item.color);
@@ -225,13 +225,13 @@ export async function updateShopUI() {
 
     const auctionList = document.getElementById('auction-list');
     if (auctionList) {
-        auctionList.innerHTML = '<div class="p-10 text-center text-slate-500 animate-pulse uppercase font-black text-[10px] tracking-widest">Buscando leilões reais...</div>';
+        auctionList.innerHTML = `<div class="p-10 text-center text-slate-500 animate-pulse uppercase font-black text-[10px] tracking-widest">${i18n.t('shop-auction-loading')}</div>`;
         
         const items = await AuctionEngine.getAuctionItems();
         auctionList.innerHTML = '';
         
         if (items.length === 0) {
-            auctionList.innerHTML = '<div class="p-10 text-center text-slate-600 font-black uppercase tracking-widest border-2 border-dashed border-slate-800 rounded-2xl text-[10px]">Nenhum leilão ativo no momento.</div>';
+            auctionList.innerHTML = `<div class="p-10 text-center text-slate-600 font-black uppercase tracking-widest border-2 border-dashed border-slate-800 rounded-2xl text-[10px]">${i18n.t('shop-auction-empty')}</div>`;
             return;
         }
 
@@ -246,9 +246,9 @@ export async function updateShopUI() {
                     <div class="text-xs font-mono font-bold text-yellow-400 mt-0.5">${item.currentPrice} RC</div>
                 </div>
                 <div class="flex flex-col items-end gap-1">
-                    <div class="text-[7px] text-green-500 font-black uppercase">Status</div>
-                    <div class="text-[9px] font-mono text-white bg-black/40 px-1.5 py-0.5 rounded">${item.timeLeft}</div>
-                    <button onclick="window.app.bid('${item.id}', ${item.currentPrice})" class="px-3 py-1 bg-slate-800 text-yellow-500 text-[8px] font-black uppercase rounded-lg border border-yellow-500/50 active:scale-95">Comprar</button>
+                    <div class="text-[7px] text-green-500 font-black uppercase">${i18n.t('shop-auction-status')}</div>
+                    <div class="text-[9px] font-mono text-white bg-black/40 px-1.5 py-0.5 rounded">${item.timeLeft === '---' ? i18n.t('shop-auction-active') : item.timeLeft}</div>
+                    <button onclick="window.app.bid('${item.id}', ${item.currentPrice})" class="px-3 py-1 bg-slate-800 text-yellow-500 text-[8px] font-black uppercase rounded-lg border border-yellow-500/50 active:scale-95">${i18n.t('shop-buy-btn')}</button>
                 </div>
             `;
             auctionList.appendChild(div);
@@ -262,7 +262,7 @@ export function updateInventoryUI() {
     if (!invList) return;
     invList.innerHTML = '';
     if (state.gameData.inventory.roosters.length === 0) {
-        invList.innerHTML = '<div class="col-span-full text-center py-10 text-slate-600 font-black uppercase tracking-widest text-xs">Sua mochila está vazia.<br>Visite a loja!</div>';
+        invList.innerHTML = `<div class="col-span-full text-center py-10 text-slate-600 font-black uppercase tracking-widest text-xs">${i18n.t('inv-empty')}</div>`;
         return;
     }
     state.gameData.inventory.roosters.forEach(gal => {
@@ -283,10 +283,10 @@ export function updateInventoryUI() {
                 <div class="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">Nível ${gal.level} • XP ${gal.xp}</div>
                 <div class="flex gap-2 mt-2">
                     <button onclick="window.app.toggleTeamMember('${gal.id}')" class="px-2.5 py-1 ${inTeam ? 'bg-red-900/40 text-red-400 border-red-500/30' : 'bg-yellow-500 text-black'} text-[8px] font-black uppercase rounded-lg transition-all border border-transparent active:scale-95">
-                        ${inTeam ? 'Remover' : 'Equipar'}
+                        ${inTeam ? i18n.t('inv-remove-btn') : i18n.t('inv-equip-btn')}
                     </button>
                     <button onclick="window.app.sellRooster('${gal.id}')" class="px-2.5 py-1 bg-slate-800 text-slate-400 text-[8px] font-black uppercase rounded-lg border border-slate-700 active:scale-95">
-                        Vender
+                        ${i18n.t('inv-sell-btn')}
                     </button>
                 </div>
             </div>
@@ -313,8 +313,8 @@ export function updateReferralUI() {
             const div = document.createElement('div');
             div.className = 'bg-slate-900/50 border border-slate-800 rounded-xl p-3 flex justify-between items-center';
             div.innerHTML = `
-                <span class="text-[10px] text-slate-400 font-bold uppercase">${labels[i]}</span>
-                <span class="text-sm font-mono font-bold text-white">${count} usuários</span>
+                <span class="text-[10px] text-slate-400 font-bold uppercase">${i18n.t('ref-level-label', {n: i+1, p: [5, 2, 1, 1, 1][i]})}</span>
+                <span class="text-sm font-mono font-bold text-white">${count} ${i18n.t('ref-users-suffix')}</span>
             `;
             levelsList.appendChild(div);
         });
@@ -341,8 +341,8 @@ export function updateMissionsUI() {
         div.innerHTML = `
             <div class="flex justify-between items-start mb-4">
                 <div class="flex flex-col">
-                    <span class="text-xs font-black text-white uppercase tracking-tighter">${m.desc}</span>
-                    <span class="text-[10px] text-slate-500 font-bold uppercase mt-1">Prêmio: <span class="text-yellow-500">${m.reward} RC</span> + <span class="text-blue-400">${m.xp} XP</span></span>
+                    <span class="text-xs font-black text-white uppercase tracking-tighter">${i18n.t(m.descKey)}</span>
+                    <span class="text-[10px] text-slate-500 font-bold uppercase mt-1">${i18n.t('miss-reward-label')} <span class="text-yellow-500">${m.reward} RC</span> + <span class="text-blue-400">${m.xp} XP</span></span>
                 </div>
                 ${isDone ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>' : `<span class="text-[10px] font-mono font-bold text-slate-400">${current}/${m.target}</span>`}
             </div>
@@ -363,7 +363,7 @@ export function updateTournamentUI() {
         bracket.innerHTML = `
             <div class="flex flex-col items-center justify-center h-64 text-slate-600 uppercase font-black tracking-widest text-center">
                 <i class="fas fa-trophy text-4xl mb-4 opacity-20"></i>
-                Nenhum torneio ativo.<br>Pague a taxa para começar!
+                <span data-i18n="tour-no-active">${i18n.t('tour-no-active')}</span>
             </div>
         `;
         const startBtn = document.getElementById('btn-start-tournament');
@@ -375,7 +375,7 @@ export function updateTournamentUI() {
     if (startBtn) startBtn.classList.add('hidden');
     bracket.innerHTML = '';
     
-    const rounds = ['QUARTAS', 'SEMIFINAL', 'FINAL'];
+    const rounds = [i18n.t('tour-round-qf'), i18n.t('tour-round-sf'), i18n.t('tour-round-final')];
     const container = document.createElement('div');
     container.className = "flex gap-8 min-w-max h-full items-center py-4";
 
@@ -392,7 +392,7 @@ export function updateTournamentUI() {
                 const pDiv = document.createElement('div');
                 if (!p) {
                     pDiv.className = "text-[10px] text-slate-600 italic";
-                    pDiv.innerText = "Aguardando...";
+                    pDiv.innerText = i18n.t('tour-waiting');
                 } else {
                     const isNextMatch = t.round === rIdx && (p.id === 'player' || (participants[i]?.id === 'player' || participants[i+1]?.id === 'player'));
                     pDiv.className = `flex justify-between items-center px-2 py-1 rounded ${p.isEliminated ? 'opacity-30 grayscale' : (p.isPlayer ? 'bg-yellow-500/20 text-yellow-500 font-bold' : 'text-white')}`;
@@ -425,7 +425,7 @@ export function updateLogsUI() {
     const logs = MatchLogService.getLogs();
     
     if (logs.length === 0) {
-        list.innerHTML = `<div class="p-10 text-center text-slate-600 uppercase font-black tracking-widest opacity-50">Nenhum log disponível</div>`;
+        list.innerHTML = `<div class="p-10 text-center text-slate-600 uppercase font-black tracking-widest opacity-50">${i18n.t('logs-empty')}</div>`;
         return;
     }
 
@@ -434,9 +434,9 @@ export function updateLogsUI() {
             <div class="flex justify-between items-start">
                 <div>
                     <div class="text-[8px] text-slate-500 font-black uppercase mb-1">${new Date(log.date).toLocaleString()}</div>
-                    <div class="text-xs font-bold text-white uppercase">${log.mode === '3v3' ? 'Batalha de Equipes' : 'Duelo 1v1'}</div>
+                    <div class="text-xs font-bold text-white uppercase">${log.mode === '3v3' ? i18n.t('logs-mode-3v3') : i18n.t('logs-mode-1v1')}</div>
                 </div>
-                <div class="px-2 py-1 rounded text-[8px] font-black uppercase ${log.result === 'win' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${log.result}</div>
+                <div class="px-2 py-1 rounded text-[8px] font-black uppercase ${log.result === 'win' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${log.result === 'win' ? i18n.t('res-victory') : i18n.t('res-defeat')}</div>
             </div>
             <div class="flex items-center justify-between bg-black/30 p-2 rounded-xl border border-white/5">
                 <div class="flex -space-x-2">
@@ -448,7 +448,7 @@ export function updateLogsUI() {
                 </div>
             </div>
             <div class="flex justify-between items-center text-[10px] font-mono">
-                <span class="text-slate-500">Aposta: ${log.bet} RC</span>
+                <span class="text-slate-500">${i18n.t('res-bet')}: ${log.bet} RC</span>
                 <span class="${log.financial >= 0 ? 'text-green-400' : 'text-red-400'}">${log.financial >= 0 ? '+' : ''}${log.financial} RC</span>
             </div>
         </div>

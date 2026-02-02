@@ -13,8 +13,8 @@ export class MarketplaceService {
 
     static getCombatItems() {
         return [
-            { id: 'pot-hp', name: 'Poção de HP', type: 'heal', value: 50, price: 200, icon: '🧪' },
-            { id: 'pot-mp', name: 'Vitamina de Energia', type: 'energy', value: 50, price: 150, icon: '⚡' }
+            { id: 'pot-hp', nameKey: 'shop-item-hp-name', type: 'heal', value: 50, price: 200, icon: '🧪' },
+            { id: 'pot-mp', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, price: 150, icon: '⚡' }
         ];
     }
 
@@ -106,7 +106,7 @@ export class AuctionEngine {
                 id: r.id,
                 rooster: r,
                 currentPrice: r.price,
-                timeLeft: 'Ativo'
+                timeLeft: '---' // Will be handled in UI or translation
             }));
         } catch (err) {
             console.error("Fetch real auctions failed:", err);

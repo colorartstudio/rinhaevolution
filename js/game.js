@@ -58,8 +58,8 @@ function renderItemMenu() {
             btn.className = "flex justify-between items-center p-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-all";
             btn.innerHTML = `
                 <div class="flex flex-col text-left">
-                    <span class="text-[9px] font-bold text-white uppercase">${item.name}</span>
-                    <span class="text-[7px] text-slate-500 uppercase">${item.type === 'heal' ? 'Recupera HP' : 'Recupera MP'}</span>
+                    <span class="text-[9px] font-bold text-white uppercase">${i18n.t(item.nameKey)}</span>
+                    <span class="text-[7px] text-slate-500 uppercase">${item.type === 'heal' ? i18n.t('shop-item-hp-desc') : i18n.t('shop-item-mp-desc')}</span>
                 </div>
                 <span class="bg-yellow-500 text-black text-[9px] font-black px-2 rounded-full">${item.count}</span>
             `;
@@ -67,7 +67,7 @@ function renderItemMenu() {
         }
     });
     if (container.innerHTML === '') {
-        container.innerHTML = '<div class="col-span-2 text-center text-[8px] text-slate-500 uppercase py-2">Mochila Vazia</div>';
+        container.innerHTML = `<div class="col-span-2 text-center text-[8px] text-slate-500 uppercase py-2">${i18n.t('inv-empty')}</div>`;
     }
 }
 
@@ -91,7 +91,7 @@ export function selectBet(amount) {
 export async function checkBalanceAndStart() {
     // Engenharia de Segurança: Login Obrigatório para Batalhas
     if (!state.gameData.user || !state.gameData.user.id) {
-        alert("Você precisa estar logado para iniciar uma batalha!");
+        alert(i18n.t('btl-error-login'));
         window.app.showLogin();
         return;
     }
@@ -99,7 +99,7 @@ export async function checkBalanceAndStart() {
     if (state.gameMode === '3v3') {
         const team = TeamService.getTeamRoosters();
         if (team.length < 3) {
-            alert("Você precisa de 3 galos no seu time!");
+            alert(i18n.t('btl-error-team'));
             return;
         }
     }
@@ -114,7 +114,7 @@ export async function checkBalanceAndStart() {
     const btnStart = document.getElementById('btn-start');
     if (btnStart) {
         btnStart.disabled = true;
-        btnStart.innerText = "PROCESSANDO...";
+        btnStart.innerText = i18n.t('btl-processing');
     }
 
     // Chamada antecipada para o Backend (Supabase RPC)
@@ -151,7 +151,7 @@ export async function checkBalanceAndStart() {
 
     } catch (err) {
         console.error("Erro ao processar batalha no servidor:", err);
-        alert("Erro de conexão com o servidor. Verifique seu saldo e tente novamente.");
+        alert(i18n.t('btl-error-server'));
         if (btnStart) {
             btnStart.disabled = false;
             btnStart.innerText = i18n.t('sel-search');
@@ -451,8 +451,8 @@ async function battleSequence() {
                 
                 // Feedback visual de Crítico/Fraco
                 let floatMsg = `-${dmgC}`;
-                if (advDmg.type === 'critical') floatMsg = `CRÍTICO! ${floatMsg}`;
-                if (advDmg.type === 'weak') floatMsg = `FRACO... ${floatMsg}`;
+                if (advDmg.type === 'critical') floatMsg = `${i18n.t('btl-critical')} ${floatMsg}`;
+                if (advDmg.type === 'weak') floatMsg = `${i18n.t('btl-weak')} ${floatMsg}`;
                 
                 showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical'); 
                 updateHealth('c-hp-bar', (dmgC / cRooster.hp_max) * 100);
@@ -487,7 +487,7 @@ async function battleSequence() {
 
             await sleep(400); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(600);
         } else {
-            showFloatingText(pAv, "ATORDUADO!", 'left', false);
+            showFloatingText(pAv, i18n.t('btl-stunned'), 'left', false);
             pStatus.stun = false;
             await sleep(1000);
         }
@@ -532,8 +532,8 @@ async function battleSequence() {
             pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
             
             let floatMsgP = `-${dmgP}`;
-            if (advDmgP.type === 'critical') floatMsgP = `CRÍTICO! ${floatMsgP}`;
-            if (advDmgP.type === 'weak') floatMsgP = `FRACO... ${floatMsgP}`;
+            if (advDmgP.type === 'critical') floatMsgP = `${i18n.t('btl-critical')} ${floatMsgP}`;
+            if (advDmgP.type === 'weak') floatMsgP = `${i18n.t('btl-weak')} ${floatMsgP}`;
 
             showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical'); 
             updateHealth('p-hp-bar', (dmgP / pRooster.hp_max) * 100);
@@ -546,7 +546,7 @@ async function battleSequence() {
 
             await sleep(400); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(600);
         } else {
-            showFloatingText(cAv, "ATORDUADO!", 'right', false);
+            showFloatingText(cAv, i18n.t('btl-stunned'), 'right', false);
             cStatus.stun = false;
             await sleep(1000);
         }
@@ -694,8 +694,8 @@ async function battleSequence3v3() {
             }
             
             let floatMsg = `-${dmgC}`;
-            if (advDmg.type === 'critical') floatMsg = `CRÍTICO! ${floatMsg}`;
-            if (advDmg.type === 'weak') floatMsg = `FRACO... ${floatMsg}`;
+            if (advDmg.type === 'critical') floatMsg = `${i18n.t('btl-critical')} ${floatMsg}`;
+            if (advDmg.type === 'weak') floatMsg = `${i18n.t('btl-weak')} ${floatMsg}`;
 
             showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical'); 
             updateHealth('c-hp-bar', (dmgC / 300) * 100);
@@ -744,8 +744,8 @@ async function battleSequence3v3() {
         pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
 
         let floatMsgP = `-${dmgP}`;
-        if (advDmgP.type === 'critical') floatMsgP = `CRÍTICO! ${floatMsgP}`;
-        if (advDmgP.type === 'weak') floatMsgP = `FRACO... ${floatMsgP}`;
+        if (advDmgP.type === 'critical') floatMsgP = `${i18n.t('btl-critical')} ${floatMsgP}`;
+        if (advDmgP.type === 'weak') floatMsgP = `${i18n.t('btl-weak')} ${floatMsgP}`;
 
         showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical'); 
         updateHealth('p-hp-bar', (dmgP / 300) * 100);
@@ -911,9 +911,9 @@ async function saveMatchResult(win, pEl, pCol) {
         if (result.finished) {
             if (result.won) {
                 const jackpot = EconomyService.claimTournamentJackpot();
-                setTimeout(() => alert(`🏆 CAMPEÃO DO TORNEIO! Você ganhou o Jackpot de ${jackpot} RC!`), 1000);
+                setTimeout(() => alert(i18n.t('tour-win-msg').replace('{jackpot}', jackpot)), 1000);
             } else {
-                setTimeout(() => alert(`☠️ ELIMINADO! Melhor sorte no próximo torneio.`), 1000);
+                setTimeout(() => alert(i18n.t('tour-loss-msg')), 1000);
             }
         }
     }
@@ -959,7 +959,7 @@ async function saveMatchResult(win, pEl, pCol) {
 
     if (levelUps.length > 0) {
         setTimeout(() => {
-            alert(`SUBIU DE NÍVEL! Seus galos ficaram mais fortes!`);
+            alert(i18n.t('sys-level-up'));
         }, 1000);
     }
 }
@@ -1000,7 +1000,7 @@ function calculateAdvancedDamage(atk, multiplier, level, arena, element, color, 
 export function startTournament() {
     const fee = 500;
     if (state.gameData.balance < fee) {
-        alert("Saldo insuficiente para entrar no torneio!");
+        alert(i18n.t('tour-error-balance'));
         return;
     }
 

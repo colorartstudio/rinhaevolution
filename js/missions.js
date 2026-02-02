@@ -10,9 +10,9 @@ export class MissionService {
     static getDailyMissions() {
         // Simple fixed daily missions for now
         return [
-            { id: 'm1', type: MISSION_TYPES.MATCHES, target: 5, reward: 500, xp: 100, desc: 'Complete 5 batalhas' },
-            { id: 'm2', type: MISSION_TYPES.WINS, target: 3, reward: 800, xp: 200, desc: 'Vença 3 batalhas' },
-            { id: 'm3', type: MISSION_TYPES.SPEND, target: 1000, reward: 1000, xp: 300, desc: 'Gaste 1000 RC no Mercado' }
+            { id: 'm1', type: MISSION_TYPES.MATCHES, target: 5, reward: 500, xp: 100, descKey: 'miss-m1-desc' },
+            { id: 'm2', type: MISSION_TYPES.WINS, target: 3, reward: 800, xp: 200, descKey: 'miss-m2-desc' },
+            { id: 'm3', type: MISSION_TYPES.SPEND, target: 1000, reward: 1000, xp: 300, descKey: 'miss-m3-desc' }
         ];
     }
 
