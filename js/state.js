@@ -1,17 +1,17 @@
 export const STORAGE_KEY = 'rinha_evo_v3_eco';
 
 export const ELEMENTS = {
-    fire: { id: 'fire', name: 'Vulcan', base: 100, icon: '🔥', tailColor1: '#ff4500', tailColor2: '#ffcc00', desc: 'Atk Max' },
-    earth: { id: 'earth', name: 'Rochus', base: 95, icon: '🏔️', tailColor1: '#556b2f', tailColor2: '#8bc34a', desc: 'Defesa' },
-    water: { id: 'water', name: 'Hydro', base: 90, icon: '🌊', tailColor1: '#00bfff', tailColor2: '#e0ffff', desc: 'Tático' },
-    air: { id: 'air', name: 'Zephyr', base: 85, icon: '🌪️', tailColor1: '#b0bec5', tailColor2: '#ffffff', desc: 'Veloz' }
+    fire: { id: 'fire', name: 'Vulcan', nameKey: 'el-fire', base: 100, icon: '🔥', tailColor1: '#ff4500', tailColor2: '#ffcc00', desc: 'Atk Max' },
+    earth: { id: 'earth', name: 'Rochus', nameKey: 'el-earth', base: 95, icon: '🏔️', tailColor1: '#556b2f', tailColor2: '#8bc34a', desc: 'Defesa' },
+    water: { id: 'water', name: 'Hydro', nameKey: 'el-water', base: 90, icon: '🌊', tailColor1: '#00bfff', tailColor2: '#e0ffff', desc: 'Tático' },
+    air: { id: 'air', name: 'Zephyr', nameKey: 'el-air', base: 85, icon: '🌪️', tailColor1: '#b0bec5', tailColor2: '#ffffff', desc: 'Veloz' }
 };
 
 export const COLORS = {
-    red: { id: 'red', hex: '#dc2626', dark: '#7f1d1d', name: 'Rubro' },
-    blue: { id: 'blue', hex: '#2563eb', dark: '#1e3a8a', name: 'Oceânico' },
-    green: { id: 'green', hex: '#16a34a', dark: '#14532d', name: 'Silvestre' },
-    yellow: { id: 'yellow', hex: '#ca8a04', dark: '#713f12', name: 'Solar' }
+    red: { id: 'red', hex: '#dc2626', dark: '#7f1d1d', name: 'Rubro', nameKey: 'col-red-name' },
+    blue: { id: 'blue', hex: '#2563eb', dark: '#1e3a8a', name: 'Oceânico', nameKey: 'col-blue-name' },
+    green: { id: 'green', hex: '#16a34a', dark: '#14532d', name: 'Silvestre', nameKey: 'col-green-name' },
+    yellow: { id: 'yellow', hex: '#ca8a04', dark: '#713f12', name: 'Solar', nameKey: 'col-yellow-name' }
 };
 
 export const SKINS = {
@@ -43,8 +43,8 @@ class State {
             inventory: {
                 roosters: [], // { id, element, color, level, xp, dna, price }
                 items: [
-                    { id: 'pot-hp', name: 'Poção de HP', type: 'heal', value: 50, count: 2, price: 200 },
-                    { id: 'pot-mp', name: 'Vitamina de Energia', type: 'energy', value: 50, count: 2, price: 150 }
+                    { id: 'pot-hp', name: 'Poção de HP', nameKey: 'shop-item-hp-name', type: 'heal', value: 50, count: 2, price: 200 },
+                    { id: 'pot-mp', name: 'Vitamina de Energia', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, count: 2, price: 150 }
                 ]
             },
             teams: {
@@ -69,6 +69,7 @@ class State {
         };
         this.player = { element: null, color: null };
         this.cpu = { element: null, color: null };
+        this.inBattle = false;
         this.cpuTeam = [];
         this.gameMode = '1v1';
         this.currentArena = null;
@@ -165,10 +166,11 @@ class State {
                     
                     if (rError) throw rError;
                     if (roosters) {
-                        // Mapeia atk_base para atk para compatibilidade com o motor de jogo
+                        // Mapeia atributos para compatibilidade com o motor de jogo
                         const mappedRoosters = roosters.map(r => ({
                             ...r,
-                            atk: r.atk_base || r.atk || (ELEMENTS[r.element].base + (r.level * 2))
+                            atk: r.atk_base || r.atk || (ELEMENTS[r.element].base + (r.level * 2)),
+                            hp: r.hp_current !== undefined ? r.hp_current : (r.hp || r.hp_max)
                         }));
                         this.gameData.inventory.roosters = mappedRoosters;
                         this.gameData.teams.active = mappedRoosters

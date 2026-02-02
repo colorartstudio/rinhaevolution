@@ -248,6 +248,32 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
+/* Battle Bars Styling */
+#p-hp-bar, #c-hp-bar {
+    transition: width 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+}
+
+#p-hp-bar::after, #c-hp-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.3));
+    filter: blur(2px);
+}
+
+.hp-low {
+    animation: pulse-red 1s infinite;
+}
+
+@keyframes pulse-red {
+    0%, 100% { filter: brightness(1) drop-shadow(0 0 5px rgba(220,38,38,0.5)); }
+    50% { filter: brightness(1.5) drop-shadow(0 0 15px rgba(220,38,38,0.8)); }
+}
+
 /* Nascimento Radiante - Engenharia de Design */
 @keyframes radiant-glow {
     0% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), inset 0 0 20px rgba(255, 215, 0, 0.2); }
@@ -272,3 +298,30 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
 .anim-birth { animation: birth-expand 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 .anim-flash { animation: fusion-flash 0.8s ease-out forwards; }
 .anim-float { animation: float-gentle 4s infinite ease-in-out; }
+
+/* --- BOTÃO DE FUSÃO - DESTAQUE --- */
+#btn-breed-action:not([disabled]) {
+    background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+    color: #000;
+    border-bottom-color: #78350f;
+    box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4);
+    animation: pulse-action 2s infinite;
+    transform: translateY(0);
+}
+#btn-breed-action:not([disabled]):active {
+    transform: translateY(4px);
+    border-bottom-width: 0;
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
+}
+
+@keyframes pulse-action {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); }
+}
+
+/* Responsividade Mobile Extra */
+@media (max-height: 700px) {
+    .screen-container {
+        padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom) + 160px);
+    }
+}

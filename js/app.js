@@ -117,6 +117,16 @@ Object.assign(window.app, {
         const target = document.getElementById(`screen-${screenId}`);
         if (target) target.classList.remove('hidden');
 
+        // Toggle bottom nav visibility
+        const bottomNav = document.getElementById('bottom-nav');
+        if (bottomNav) {
+            if (screenId === 'battle' || screenId === 'login' || screenId === 'register') {
+                bottomNav.classList.add('hidden');
+            } else {
+                bottomNav.classList.remove('hidden');
+            }
+        }
+
         document.querySelectorAll('#bottom-nav button').forEach(b => b.classList.remove('nav-item-active'));
         const navBtn = document.getElementById(`nav-${screenId}`);
         if (navBtn) navBtn.classList.add('nav-item-active');
@@ -160,26 +170,27 @@ Object.assign(window.app, {
     },
     buyRooster: async (el, col, price) => {
         if (state.gameData.balance < price) {
-            alert("Saldo insuficiente!");
+            alert(i18n.t('shop-error-balance'));
             return;
         }
         const res = await MarketplaceService.buyRooster(el, col, price);
         if (res.success) {
             updateBalanceUI();
             updateShopUI();
-            alert("Galo comprado com sucesso!");
+            alert(i18n.t('shop-success-rooster'));
         }
     },
     buyItem: async (id, price) => {
         if (state.gameData.balance < price) {
-            alert("Saldo insuficiente!");
+            alert(i18n.t('shop-error-balance'));
             return;
         }
         const res = await MarketplaceService.buyItem(id, price);
         if (res.success) {
             updateBalanceUI();
             updateShopUI();
-            alert("Item comprado!");
+            updateInventoryUI();
+            alert(i18n.t('shop-success-item'));
         }
     },
     sellRooster: async (id) => {
@@ -196,14 +207,14 @@ Object.assign(window.app, {
     bid: async (auctionId, currentPrice) => {
         const bidAmount = Math.floor(currentPrice * 1.1);
         if (state.gameData.balance < bidAmount) {
-            alert("Saldo insuficiente!");
+            alert(i18n.t('shop-error-balance'));
             return;
         }
         const res = await AuctionEngine.placeBid(auctionId, bidAmount);
         if (res.success) {
             updateBalanceUI();
             updateShopUI();
-            alert("Lance efetuado!");
+            alert(i18n.t('shop-success-bid'));
         }
     },
     selectBreedingParent: (id) => {
@@ -218,7 +229,7 @@ Object.assign(window.app, {
         const [p1, p2] = window.app.selectedBreedingParents;
         const cost = BreedingService.getBreedingCost(p1, p2);
         if (state.gameData.balance < cost) {
-            alert("Saldo insuficiente!");
+            alert(i18n.t('shop-error-balance'));
             return;
         }
         
@@ -326,7 +337,14 @@ Object.assign(window.app, {
     },
     selectBet: (amount) => selectBet(amount),
     checkBalanceAndStart: () => checkBalanceAndStart(),
-    resetGame: () => resetGame()
+    resetGame: () => resetGame(),
+    handleRinhaClick: () => {
+        if (state.inBattle) {
+            window.app.showScreen('battle');
+        } else {
+            window.app.showScreen('selection');
+        }
+    }
 });
 
 async function boot() {

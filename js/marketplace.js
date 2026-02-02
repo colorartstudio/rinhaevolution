@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { MissionService, MISSION_TYPES } from './missions.js';
+import i18n from './i18n.js';
 
 export class MarketplaceService {
     static getShopItems() {
@@ -19,7 +20,7 @@ export class MarketplaceService {
     }
 
     static async buyItem(itemId, price) {
-        if (state.gameData.balance < price) return { success: false, error: 'Saldo insuficiente' };
+        if (state.gameData.balance < price) return { success: false, error: i18n.t('shop-error-balance') };
         
         const item = state.gameData.inventory.items.find(i => i.id === itemId);
         if (item) {
@@ -36,7 +37,7 @@ export class MarketplaceService {
     }
 
     static async buyRooster(element, color, price) {
-        if (state.gameData.balance < price) return { success: false, error: 'Balance too low' };
+        if (state.gameData.balance < price) return { success: false, error: i18n.t('shop-error-balance') };
         
         const newRooster = state.constructor.createRooster(element, color);
         
@@ -115,7 +116,7 @@ export class AuctionEngine {
     }
 
     static async bid(roosterId, amount) {
-        if (state.gameData.balance < amount) return { success: false, error: 'Balance too low' };
+        if (state.gameData.balance < amount) return { success: false, error: i18n.t('shop-error-balance') };
         
         try {
             const { supabase } = await import('./supabase.js');
@@ -127,8 +128,8 @@ export class AuctionEngine {
                 .eq('id', roosterId)
                 .single();
             
-            if (rError || !rooster) throw new Error("Rooster not found");
-            if (rooster.price > amount) throw new Error("Bid too low");
+            if (rError || !rooster) throw new Error(i18n.t('shop-error-not-found'));
+            if (rooster.price > amount) throw new Error(i18n.t('shop-error-bid-low'));
 
             const sellerId = rooster.owner_id;
 

@@ -29,8 +29,13 @@ export function toggleModal(id) {
 export function updateBalanceUI() {
     const headerBal = document.getElementById('header-balance');
     const walletBal = document.getElementById('wallet-balance-display');
-    if (headerBal) headerBal.innerText = `${state.gameData.balance} RC`;
-    if (walletBal) walletBal.innerText = `${state.gameData.balance} RC`;
+    const shopBal = document.getElementById('shop-balance-display');
+    
+    const balanceText = `${state.gameData.balance} RC`;
+    
+    if (headerBal) headerBal.innerText = balanceText;
+    if (walletBal) walletBal.innerText = balanceText;
+    if (shopBal) shopBal.innerText = balanceText;
 }
 
 export function updateSettingsUI() {
@@ -108,11 +113,28 @@ export function showFloatingText(el, text, side, isCrit) {
 
 export function updateHealth(id, dmg) {
     const bar = document.getElementById(id);
+    const percentText = document.getElementById(id.replace('bar', 'percent'));
     if (!bar) return;
+    
     let w = parseFloat(bar.style.width) || 100;
     w = Math.max(0, w - dmg);
     bar.style.width = w + '%';
-    if (w < 30) bar.classList.add('bg-red-600');
+    
+    if (percentText) {
+        percentText.innerText = Math.round(w) + '%';
+        if (w < 30) {
+            percentText.classList.add('animate-pulse', 'text-red-600');
+            bar.classList.add('hp-low');
+        } else {
+            percentText.classList.remove('animate-pulse', 'text-red-600');
+            bar.classList.remove('hp-low');
+        }
+    }
+    
+    if (w < 30) {
+        bar.classList.remove('from-blue-600', 'to-blue-400', 'from-red-600', 'to-red-400');
+        bar.classList.add('bg-red-600');
+    }
 }
 
 export function updateEnergy(id, val, max) {
@@ -163,28 +185,97 @@ export async function updateLeaderboardUI() {
             listEl.insertAdjacentHTML('beforeend', html);
         });
     } catch (err) {
-        listEl.innerHTML = '<div class="p-10 text-center text-red-500">Erro ao carregar ranking.</div>';
+        listEl.innerHTML = `<div class="p-10 text-center text-red-500">${i18n.t('lead-error')}</div>`;
     }
 }
 
 export function updatePreview() {
-    if (state.player.element) {
-        renderAvatar('selection-preview-avatar', state.player.element, state.player.color, state.player.dna?.skin || 'none');
-        const elData = ELEMENTS[state.player.element];
-        const nameEl = document.getElementById('preview-name');
-        const statBaseEl = document.getElementById('preview-stat-base');
-        const statTypeEl = document.getElementById('preview-stat-type');
-        if (nameEl) nameEl.innerText = i18n.t(`el-${elData.id}`);
-        if (statBaseEl) statBaseEl.innerText = `${i18n.t('sel-preview-strength')}: ${elData.base}`;
-        if (statTypeEl) statTypeEl.innerText = `${i18n.t('sel-preview-type')}: ${i18n.t(`el-${elData.id}`).toUpperCase()}`;
-    }
-    if (state.player.element && state.player.color) {
-        const btn = document.getElementById('btn-start');
-        if (btn) {
-            btn.disabled = false;
-            btn.innerText = i18n.t('sel-search');
-            btn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed', 'border-slate-950');
-            btn.classList.add('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'border-yellow-700', 'animate-pulse');
+    const preview1v1 = document.getElementById('preview-1v1');
+    const preview3v3 = document.getElementById('preview-3v3');
+    const startBtn = document.getElementById('btn-start');
+
+    if (state.gameMode === '3v3') {
+        if (preview1v1) preview1v1.classList.add('hidden');
+        if (preview3v3) preview3v3.classList.remove('hidden');
+
+        const teamContainer = document.getElementById('team-preview-container');
+        const teamMsg = document.getElementById('team-status-msg');
+        const team = TeamService.getTeamRoosters();
+
+        if (teamContainer) {
+            teamContainer.innerHTML = '';
+            team.forEach((gal, idx) => {
+                const div = document.createElement('div');
+                div.className = 'flex flex-col items-center gap-1 animate-fade-in';
+                div.style.animationDelay = `${idx * 150}ms`;
+                div.innerHTML = `
+                    <div id="team-preview-item-${gal.id}" class="w-20 h-20 md:w-32 md:h-32 drop-shadow-xl anim-float-slow"></div>
+                    <div class="text-[8px] font-black text-white uppercase bg-black/40 px-2 py-0.5 rounded-full border border-white/10">${i18n.t(`el-${gal.element}`)} ${i18n.t('gen-lvl-prefix')} ${gal.level}</div>
+                `;
+                teamContainer.appendChild(div);
+                renderAvatar(`team-preview-item-${gal.id}`, gal.element, gal.color, gal.dna?.skin || 'none');
+            });
+
+            // Fallback se o time estiver incompleto
+            for (let i = team.length; i < 3; i++) {
+                const div = document.createElement('div');
+                div.className = 'w-20 h-20 md:w-32 md:h-32 flex items-center justify-center border-2 border-dashed border-slate-800 rounded-full text-slate-800';
+                div.innerHTML = '<i class="fas fa-plus text-xl"></i>';
+                teamContainer.appendChild(div);
+            }
+        }
+
+        if (team.length === 3) {
+            if (teamMsg) teamMsg.innerText = i18n.t('sel-team-ready') || 'TIME PRONTO PARA A BATALHA!';
+            if (teamMsg) teamMsg.className = 'relative z-10 mt-4 text-[9px] font-black uppercase tracking-tighter text-green-500 animate-pulse';
+            
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.innerText = i18n.t('sel-start-3v3') || 'INICIAR RINHA 3V3';
+                startBtn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed', 'border-slate-950');
+                startBtn.classList.add('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'border-yellow-700', 'animate-pulse');
+            }
+        } else {
+            if (teamMsg) teamMsg.innerText = i18n.t('sel-team-incomplete') || 'SELECIONE 3 GALOS NA MOCHILA';
+            if (teamMsg) teamMsg.className = 'relative z-10 mt-4 text-[9px] font-black uppercase tracking-tighter text-yellow-500/50';
+            
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.innerText = i18n.t('sel-select-3') || 'TIME INCOMPLETO';
+                startBtn.classList.add('bg-slate-800', 'text-slate-500', 'cursor-not-allowed', 'border-slate-950');
+                startBtn.classList.remove('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'border-yellow-700', 'animate-pulse');
+            }
+        }
+    } else {
+        // Modo 1v1
+        if (preview1v1) preview1v1.classList.remove('hidden');
+        if (preview3v3) preview3v3.classList.add('hidden');
+
+        if (state.player.element) {
+            renderAvatar('selection-preview-avatar', state.player.element, state.player.color, state.player.dna?.skin || 'none');
+            const elData = ELEMENTS[state.player.element];
+            const nameEl = document.getElementById('preview-name');
+            const statBaseEl = document.getElementById('preview-stat-base');
+            const statTypeEl = document.getElementById('preview-stat-type');
+            if (nameEl) nameEl.innerText = i18n.t(`el-${elData.id}`);
+            if (statBaseEl) statBaseEl.innerText = `${i18n.t('sel-preview-strength')}: ${elData.base}`;
+            if (statTypeEl) statTypeEl.innerText = `${i18n.t('sel-preview-type')}: ${i18n.t(`el-${elData.id}`).toUpperCase()}`;
+        }
+        
+        if (state.player.element && state.player.color) {
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.innerText = i18n.t('sel-search');
+                startBtn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed', 'border-slate-950');
+                startBtn.classList.add('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'border-yellow-700', 'animate-pulse');
+            }
+        } else {
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.innerText = i18n.t('sel-start');
+                startBtn.classList.add('bg-slate-800', 'text-slate-500', 'cursor-not-allowed', 'border-slate-950');
+                startBtn.classList.remove('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'border-yellow-700', 'animate-pulse');
+            }
         }
     }
 }
@@ -194,11 +285,15 @@ export async function updateShopUI() {
     if (combatList) {
         combatList.innerHTML = '';
         MarketplaceService.getCombatItems().forEach(item => {
+            const inventoryItem = state.gameData.inventory.items.find(i => i.id === item.id);
+            const count = inventoryItem ? inventoryItem.count : 0;
+
             const div = document.createElement('div');
             div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-yellow-500/50 transition-all';
             div.innerHTML = `
                 <div class="text-2xl mb-1">${item.icon}</div>
                 <div class="text-[8px] xs:text-[9px] font-black text-white uppercase text-center leading-tight h-6 flex items-center">${i18n.t(item.nameKey)}</div>
+                <div class="text-[9px] font-bold text-slate-400">${i18n.t('shop-owned')} <span class="text-white">${count}</span></div>
                 <div class="text-xs font-mono font-bold text-yellow-400">${item.price} RC</div>
                 <button onclick="window.app.buyItem('${item.id}', ${item.price})" class="w-full py-2 bg-slate-800 text-yellow-500 text-[9px] font-black uppercase rounded-lg border border-yellow-500/30 active:scale-95 transition-all">${i18n.t('shop-buy-btn')}</button>
             `;
@@ -241,7 +336,7 @@ export async function updateShopUI() {
             div.innerHTML = `
                 <div class="w-14 h-14 flex-shrink-0" id="auc-item-${item.id}"></div>
                 <div class="flex-1 min-w-0">
-                    <div class="text-[10px] font-black text-white uppercase truncate">Nível ${item.rooster.level}</div>
+                    <div class="text-[10px] font-black text-white uppercase truncate">${i18n.t('gen-level')} ${item.rooster.level}</div>
                     <div class="text-[8px] text-slate-500 truncate">${item.rooster.dna?.code || item.rooster.dna}</div>
                     <div class="text-xs font-mono font-bold text-yellow-400 mt-0.5">${item.currentPrice} RC</div>
                 </div>
@@ -258,6 +353,31 @@ export async function updateShopUI() {
 }
 
 export function updateInventoryUI() {
+    // 1. Renderizar Suprimentos (Itens Consumíveis)
+    const itemsList = document.getElementById('inventory-items-list');
+    if (itemsList) {
+        itemsList.innerHTML = '';
+        const items = state.gameData.inventory.items.filter(i => i.count > 0);
+        
+        if (items.length === 0) {
+            itemsList.innerHTML = `<div class="col-span-full text-center py-4 text-slate-600 text-[10px] font-black uppercase">${i18n.t('inv-no-items') || 'Sem suprimentos'}</div>`;
+        } else {
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-blue-500/30 transition-all';
+                const icon = item.id === 'pot-hp' ? '🧪' : '⚡';
+                div.innerHTML = `
+                    <div class="text-2xl mb-1">${icon}</div>
+                    <div class="text-[9px] font-black text-white uppercase text-center leading-tight h-6 flex items-center">${i18n.t(item.nameKey) || item.name}</div>
+                    <div class="text-[10px] font-mono font-bold text-slate-400">${item.count}x</div>
+                    <button onclick="window.app.useItem('${item.id}')" class="w-full py-2 bg-blue-600/20 text-blue-400 text-[9px] font-black uppercase rounded-lg border border-blue-500/30 active:scale-95 transition-all hover:bg-blue-600 hover:text-white">${i18n.t('inv-use-btn') || 'USAR'}</button>
+                `;
+                itemsList.appendChild(div);
+            });
+        }
+    }
+
+    // 2. Renderizar Galos
     const invList = document.getElementById('inventory-list');
     if (!invList) return;
     invList.innerHTML = '';
@@ -268,6 +388,12 @@ export function updateInventoryUI() {
     state.gameData.inventory.roosters.forEach(gal => {
         const inTeam = state.gameData.teams.active.includes(gal.id);
         const hasSkin = gal.dna?.skin && gal.dna.skin !== 'none';
+        
+        // Calcular HP atual real
+        const currentHP = gal.hp_current || gal.hp || gal.hp_max || 100;
+        const maxHP = gal.hp_max || 100;
+        const hpPercent = Math.round((currentHP / maxHP) * 100);
+
         const div = document.createElement('div');
         div.className = `bg-slate-900/50 backdrop-blur-md border ${inTeam ? 'border-yellow-500/50 shadow-yellow-500/10' : 'border-slate-800'} rounded-2xl p-3 flex items-center gap-3 shadow-xl transition-all`;
         div.innerHTML = `
@@ -276,13 +402,17 @@ export function updateInventoryUI() {
                 ${hasSkin ? `<div class="absolute -top-1 -left-1 bg-yellow-500 text-black text-[6px] font-black px-1.5 py-0.5 rounded-full shadow-lg border border-black animate-pulse z-10">${i18n.t('skin-' + gal.dna.skin)}</div>` : ''}
             </div>
             <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                    <div class="text-[10px] font-black text-white uppercase truncate">${i18n.t(`el-${gal.element}`)}</div>
-                    ${gal.dna?.rarity === 'legendary' ? '<span class="text-[6px] bg-orange-500/20 text-orange-400 px-1 rounded font-black">LEGENDARY</span>' : ''}
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <div class="text-[10px] font-black text-white uppercase truncate">${i18n.t(`el-${gal.element}`)}</div>
+                        ${gal.dna?.rarity === 'legendary' ? '<span class="text-[6px] bg-orange-500/20 text-orange-400 px-1 rounded font-black">LEGENDARY</span>' : ''}
+                    </div>
+                    <div class="text-[8px] font-mono ${hpPercent < 30 ? 'text-red-500' : 'text-green-500'} font-bold">${hpPercent}% HP</div>
                 </div>
-                <div class="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">Nível ${gal.level} • XP ${gal.xp}</div>
-                <div class="flex gap-2 mt-2">
-                    <button onclick="window.app.toggleTeamMember('${gal.id}')" class="px-2.5 py-1 ${inTeam ? 'bg-red-900/40 text-red-400 border-red-500/30' : 'bg-yellow-500 text-black'} text-[8px] font-black uppercase rounded-lg transition-all border border-transparent active:scale-95">
+                <div class="text-[8px] text-slate-500 font-bold uppercase tracking-tighter mb-2">${i18n.t('gen-level')} ${gal.level} • XP ${gal.xp}</div>
+                
+                <div class="flex gap-2">
+                    <button onclick="window.app.toggleTeamMember('${gal.id}')" class="flex-1 py-1 ${inTeam ? 'bg-red-900/40 text-red-400 border-red-500/30' : 'bg-yellow-500 text-black'} text-[8px] font-black uppercase rounded-lg transition-all border border-transparent active:scale-95">
                         ${inTeam ? i18n.t('inv-remove-btn') : i18n.t('inv-equip-btn')}
                     </button>
                     <button onclick="window.app.sellRooster('${gal.id}')" class="px-2.5 py-1 bg-slate-800 text-slate-400 text-[8px] font-black uppercase rounded-lg border border-slate-700 active:scale-95">
@@ -308,13 +438,15 @@ export function updateReferralUI() {
     const levelsList = document.getElementById('ref-levels-list');
     if (levelsList) {
         levelsList.innerHTML = '';
-        const labels = ['1º Nível (5%)', '2º Nível (2%)', '3º Nível (1%)', '4º Nível (1%)', '5º Nível (1%)'];
-        stats.networkCount.forEach((count, i) => {
+        const percentages = [5, 2, 1, 1, 1];
+        const counts = state.gameData.referral_stats || [0, 0, 0, 0, 0];
+        
+        percentages.forEach((p, i) => {
             const div = document.createElement('div');
             div.className = 'bg-slate-900/50 border border-slate-800 rounded-xl p-3 flex justify-between items-center';
             div.innerHTML = `
-                <span class="text-[10px] text-slate-400 font-bold uppercase">${i18n.t('ref-level-label', {n: i+1, p: [5, 2, 1, 1, 1][i]})}</span>
-                <span class="text-sm font-mono font-bold text-white">${count} ${i18n.t('ref-users-suffix')}</span>
+                <div class="text-[10px] font-bold text-slate-400 uppercase">${i18n.t('ref-level-label', { n: i + 1, p: p })}</div>
+                <div class="text-xs font-mono font-bold text-white">${counts[i]} ${i18n.t('ref-users-suffix')}</div>
             `;
             levelsList.appendChild(div);
         });
@@ -402,7 +534,7 @@ export function updateTournamentUI() {
                             <span class="text-[8px]">${elIcon}</span>
                             <span class="text-[9px] uppercase truncate max-w-[70px]">${p.name}</span>
                         </div>
-                        <span class="text-[8px] font-mono opacity-50">Lvl ${p.level}</span>
+                        <span class="text-[8px] font-mono opacity-50">${i18n.t('gen-lvl-prefix')} ${p.level}</span>
                     `;
                     if (isNextMatch && !p.isEliminated && p.id === 'player') {
                         pDiv.classList.add('ring-1', 'ring-yellow-500', 'animate-pulse');

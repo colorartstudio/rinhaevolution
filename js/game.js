@@ -22,6 +22,61 @@ import { SkillService, SKILLS } from './skills.js';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let playerActionResolve = null;
 
+export async function useItem(itemId) {
+    const item = state.gameData.inventory.items.find(i => i.id === itemId);
+    if (!item || item.count <= 0) return;
+
+    // Se estiver em batalha, usar a lógica de batalha (já existe no menu de itens)
+    // Se estiver fora da batalha (Mochila), aplicar ao galo ativo ou primeiro do time
+    const activeRoosters = TeamService.getTeamRoosters();
+    const target = activeRoosters[0] || state.gameData.inventory.roosters[0];
+
+    if (!target) {
+        alert(i18n.t('inv-no-rooster') || 'Você não tem galos para usar este item!');
+        return;
+    }
+
+    if (item.type === 'heal') {
+        const currentHP = target.hp || target.hp_current || target.hp_max || 100;
+        const maxHP = target.hp_max || 100;
+        
+        if (currentHP >= maxHP) {
+            alert(i18n.t('inv-hp-full') || 'Este galo já está com a vida cheia!');
+            return;
+        }
+
+        const healValue = Math.round(maxHP * (item.value / 100));
+        target.hp = Math.min(maxHP, currentHP + healValue);
+        target.hp_current = target.hp; // Sincroniza propriedade
+        item.count--;
+        
+        // Sincronizar com Supabase
+        if (state.gameData.user && !state.gameData.user.isGuest) {
+            try {
+                const { supabase } = await import('./supabase.js');
+                await supabase.from('roosters')
+                    .update({ hp_current: target.hp_current })
+                    .eq('id', target.id);
+            } catch (err) {
+                console.warn("Falha ao sincronizar HP com Supabase:", err);
+            }
+        }
+        
+        AudioEngine.playClick();
+        alert(`${i18n.t('inv-used-msg') || 'Usou'} ${i18n.t(item.nameKey) || item.name}!`);
+        
+    } else if (item.type === 'energy') {
+        // Implementar lógica de energia se necessário fora de batalha
+        // Por enquanto apenas gasta o item se não estiver cheio
+        item.count--;
+        AudioEngine.playClick();
+        alert(`${i18n.t('inv-used-msg') || 'Usou'} ${i18n.t(item.nameKey) || item.name}!`);
+    }
+
+    state.save();
+    updateInventoryUI();
+}
+
 export function handleSkillClick(skillId) {
     if (playerActionResolve) {
         playerActionResolve({ type: 'skill', id: skillId });
@@ -58,7 +113,7 @@ function renderItemMenu() {
             btn.className = "flex justify-between items-center p-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-all";
             btn.innerHTML = `
                 <div class="flex flex-col text-left">
-                    <span class="text-[9px] font-bold text-white uppercase">${i18n.t(item.nameKey)}</span>
+                    <span class="text-[9px] font-bold text-white uppercase">${i18n.t(item.nameKey) || item.name}</span>
                     <span class="text-[7px] text-slate-500 uppercase">${item.type === 'heal' ? i18n.t('shop-item-hp-desc') : i18n.t('shop-item-mp-desc')}</span>
                 </div>
                 <span class="bg-yellow-500 text-black text-[9px] font-black px-2 rounded-full">${item.count}</span>
@@ -164,6 +219,8 @@ export function startRouletteSequence() {
     if (!state.currentArena) {
         state.currentArena = ARENAS[Math.floor(Math.random() * ARENAS.length)];
     }
+
+    state.inBattle = true;
 
     document.getElementById('screen-selection').classList.add('hidden');
     document.getElementById('screen-battle').classList.remove('hidden');
@@ -318,7 +375,7 @@ async function showPlayerSkills(rooster) {
             btn.className = "flex flex-col items-center justify-center p-2 bg-slate-900 border border-slate-800 rounded-xl opacity-50 cursor-not-allowed";
         }
         btn.innerHTML = `
-            <span class="text-[10px] font-black text-white uppercase ${canAfford ? 'group-hover:text-yellow-500' : 'text-slate-600'}">${skill.name}</span>
+            <span class="text-[10px] font-black text-white uppercase ${canAfford ? 'group-hover:text-yellow-500' : 'text-slate-600'}">${i18n.t(skill.nameKey)}</span>
             <div class="flex items-center gap-1 mt-0.5">
                 <span class="text-[8px] text-slate-500 uppercase">${skill.multiplier}x</span>
                 <span class="text-[8px] ${canAfford ? 'text-blue-400' : 'text-red-500'} font-bold">${skill.cost} MP</span>
@@ -402,20 +459,14 @@ async function battleSequence() {
     let pStatus = { shield: 1, def: 1, burn: 0, stun: false, element: pRooster.element, color: pRooster.color };
     let cStatus = { shield: 1, def: 1, burn: 0, stun: false, element: cRooster.element, color: cRooster.color };
 
-    // Turn Loop (Fixed to 8 rounds or until KO)
+    // Turn Loop (Até a morte ou limite de segurança)
     let round = 1;
-    const MAX_ROUNDS = 8;
+    const MAX_ROUNDS = 100; // Aumentado para permitir batalhas longas com cura
 
-    // Engenharia de Animação: Se temos o resultado do servidor, calculamos o dano por turno para sincronizar
-    let dmgPerRoundC = Math.round(cRooster.hp_max / MAX_ROUNDS);
-    let dmgPerRoundP = Math.round(pRooster.hp_max / MAX_ROUNDS);
+    // Engenharia de Animação: Sincronização de Dano
+    let dmgPerRoundC = Math.round(cRooster.hp_max / 8);
+    let dmgPerRoundP = Math.round(pRooster.hp_max / 8);
     
-    // Ajuste fino para garantir KO no round certo se houver vencedor
-    if (state.battleResult) {
-        if (state.battleResult.result === 'WIN') dmgPerRoundC = Math.ceil(cRooster.hp_max / (MAX_ROUNDS - 1));
-        if (state.battleResult.result === 'LOSS') dmgPerRoundP = Math.ceil(pRooster.hp_max / (MAX_ROUNDS - 1));
-    }
-
     while (pHP > 0 && cHP > 0 && round <= MAX_ROUNDS) {
         // Energy Regen per turn
         pRooster.energy = Math.min(pRooster.energy_max || 100, pRooster.energy + 20);
@@ -499,7 +550,7 @@ async function battleSequence() {
             const bDmg = 15;
             cHP -= bDmg;
             updateHealth('c-hp-bar', (bDmg / cRooster.hp_max) * 100);
-            showFloatingText(cAv, `-${bDmg} 🔥`, 'right', false);
+            showFloatingText(cAv, `-${bDmg} ${i18n.t('btl-float-burn')}`, 'right', false);
             cStatus.burn--;
             await sleep(800);
         }
@@ -556,7 +607,7 @@ async function battleSequence() {
             const bDmg = 15;
             pHP -= bDmg;
             updateHealth('p-hp-bar', (bDmg / pRooster.hp_max) * 100);
-            showFloatingText(pAv, `-${bDmg} 🔥`, 'left', false);
+            showFloatingText(pAv, `-${bDmg} ${i18n.t('btl-float-burn')}`, 'left', false);
             pStatus.burn--;
             await sleep(800);
         }
@@ -631,7 +682,7 @@ async function battleSequence() {
 async function battleSequence3v3() {
     const pTeam = TeamService.getTeamRoosters();
     const cTeam = state.cpuTeam;
-    const rounds = 8; // Ajustado para 8 rounds conforme solicitado
+    const MAX_ROUNDS = 100;
     
     let pHP = 300; 
     let cHP = 300;
@@ -643,7 +694,8 @@ async function battleSequence3v3() {
     // Regra de Empate (Time idêntico)
     const isTieBattle = pTeam.length === cTeam.length && pTeam.every((r, i) => isIdentical(r, cTeam[i]));
 
-    for (let i = 0; i < rounds; i++) {
+    let i = 0;
+    while (pHP > 0 && cHP > 0 && i < MAX_ROUNDS) {
         const pIdx = i % pTeam.length;
         const cIdx = i % cTeam.length;
         
@@ -707,11 +759,11 @@ async function battleSequence3v3() {
                 const heal = 50; 
                 pHP = Math.min(300, pHP + heal);
                 updateHealth('p-hp-bar', -(heal / 300) * 100);
-                showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
+                showFloatingText(pAv, `+${heal} ${i18n.t('btl-float-heal')}`, 'left', false);
             } else if (item.type === 'energy') {
                 pGal.energy = Math.min(pGal.energy_max, pGal.energy + item.value);
                 updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
-                showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
+                showFloatingText(pAv, `+${item.value} ${i18n.t('btl-float-energy')}`, 'left', false);
             }
             await sleep(500);
         }
@@ -754,6 +806,7 @@ async function battleSequence3v3() {
         await sleep(400); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(600);
 
         if (pHP <= 0) break;
+        i++;
     }
 
     let result = 'loss';
@@ -911,7 +964,7 @@ async function saveMatchResult(win, pEl, pCol) {
         if (result.finished) {
             if (result.won) {
                 const jackpot = EconomyService.claimTournamentJackpot();
-                setTimeout(() => alert(i18n.t('tour-win-msg').replace('{jackpot}', jackpot)), 1000);
+                setTimeout(() => alert(i18n.t('tour-win-msg', { jackpot })), 1000);
             } else {
                 setTimeout(() => alert(i18n.t('tour-loss-msg')), 1000);
             }
@@ -1043,6 +1096,8 @@ export function startTournamentMatch() {
 export function resetGame() {
     AudioEngine.playClick();
     
+    state.inBattle = false;
+    
     // Hide Results
     document.getElementById('result-overlay').classList.add('hidden');
     document.getElementById('result-card').classList.add('scale-90', 'opacity-0');
@@ -1058,8 +1113,8 @@ export function resetGame() {
     } else {
         // Show Selection Screen
         document.getElementById('screen-selection').classList.remove('hidden');
-        document.getElementById('bottom-nav').classList.remove('hidden');
     }
+    document.getElementById('bottom-nav').classList.remove('hidden');
     
     // Reset Battle Stage
     const pAv = document.getElementById('player-avatar');

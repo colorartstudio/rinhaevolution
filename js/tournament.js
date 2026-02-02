@@ -1,12 +1,11 @@
 import { state, ELEMENTS, COLORS } from './state.js';
-
-const CPU_NAMES = ["Bico de Ouro", "Pena de Ferro", "Galo de Briga", "Espora Afiada", "Cresta Rubra", "Trovão Azul", "Relâmpago", "Sombra Verde", "Fogo Vivo", "Pedra Bruta"];
+import i18n from './i18n.js';
 
 export class TournamentService {
     static startNew() {
         const playerRooster = state.gameData.inventory.roosters.find(r => r.in_team) || state.gameData.inventory.roosters[0];
         
-        if (!playerRooster) return { success: false, error: 'Selecione um galo para o torneio!' };
+        if (!playerRooster) return { success: false, error: i18n.t('tour-error-no-rooster') };
         
         const participants = [];
         // Add Player
@@ -27,9 +26,10 @@ export class TournamentService {
             const el = elKeys[Math.floor(Math.random() * elKeys.length)];
             const col = colKeys[Math.floor(Math.random() * colKeys.length)];
             
+            const cpuNames = i18n.t('tour-cpu-names');
             participants.push({
                 id: 'cpu-' + i,
-                name: CPU_NAMES[Math.floor(Math.random() * CPU_NAMES.length)] + " " + (i+1),
+                name: cpuNames[Math.floor(Math.random() * cpuNames.length)] + " " + (i+1),
                 element: el,
                 color: col,
                 level: Math.max(1, playerRooster.level + Math.floor(Math.random() * 3) - 1),

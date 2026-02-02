@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import i18n from './i18n.js';
 
 export const MISSION_TYPES = {
     MATCHES: 'matches',
@@ -55,7 +56,7 @@ export class MissionService {
                     const activeRoosters = state.gameData.inventory.roosters.filter(r => r.in_team);
                     activeRoosters.forEach(r => state.constructor.addXP(r, mission.xp));
                     
-                    console.log(`Missão concluída: ${mission.desc}! Recompensa: ${mission.reward} RC`);
+                    console.log(`Mission complete: ${i18n.t(mission.descKey)}! Reward: ${mission.reward} RC`);
                 }
             }
         });

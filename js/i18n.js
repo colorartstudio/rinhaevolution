@@ -44,6 +44,11 @@ const translations = {
         'sel-counter-info': 'Vermelho > Azul > Verde > Amarelo > Vermelho',
         'sel-preview-strength': 'FORÇA',
         'sel-preview-type': 'TIPO',
+        'sel-team-preview': 'SEU TIME 3V3',
+        'sel-team-ready': 'TIME PRONTO PARA A BATALHA!',
+        'sel-team-incomplete': 'SELECIONE 3 GALOS NA MOCHILA',
+        'sel-start-3v3': 'INICIAR RINHA 3V3',
+        'sel-select-3': 'TIME INCOMPLETO',
         
         // Elements
         'el-fire': 'Fogo',
@@ -57,10 +62,15 @@ const translations = {
         'btl-vs': 'VS',
         'btl-actions': 'Ações de Combate',
         'btl-items': 'Itens',
+        'btl-you': 'VOCÊ',
+        'btl-opponent': 'OPONENTE',
         'btl-stunned': 'ATORDUADO!',
         'btl-critical': 'CRÍTICO!',
         'btl-weak': 'FRACO...',
         'btl-processing': 'PROCESSANDO...',
+        'btl-float-heal': '🧪',
+        'btl-float-energy': '⚡',
+        'btl-float-burn': '🔥',
         'btl-error-login': 'Você precisa estar logado para iniciar uma batalha!',
         'btl-error-team': 'Você precisa de 3 galos no seu time!',
         'btl-error-server': 'Erro de conexão com o servidor. Verifique seu saldo e tente novamente.',
@@ -87,6 +97,8 @@ const translations = {
         'res-base-label': 'Base',
         'res-bonus-label': 'Bônus',
         'res-paint-label': 'Pintura',
+        'gen-level': 'Nivel',
+        'gen-lvl-prefix': 'Niv',
         
         // Modals
         'mod-wallet-title': 'Carteira Digital',
@@ -179,13 +191,26 @@ const translations = {
         'shop-auction-active': 'Ativo',
         'shop-success-buy': 'Galo adquirido com sucesso!',
         'shop-success-item': 'Item adquirido com sucesso!',
+        'shop-success-rooster': 'Galo comprado com sucesso!',
+        'shop-success-bid': 'Lance efetuado!',
+        'shop-owned': 'Possui:',
+        'shop-error-bid-low': 'Lance muito baixo',
+        'shop-error-not-found': 'Galo não encontrado',
+        'gen-level': 'Nível',
+        'gen-lvl-prefix': 'Lvl',
 
         // Inventory
         'inv-title': 'MINHA MOCHILA',
         'inv-subtitle': 'Gerencie seu time de combate',
         'inv-empty': 'Sua mochila está vazia.<br>Visite a loja!',
         'inv-equip-btn': 'Equipar',
-        'inv-remove-btn': 'Remover',
+        'inv-remove-btn': 'REMOVER',
+        'inv-no-items': 'SEM SUPRIMENTOS',
+        'inv-use-btn': 'USAR',
+        'inv-my-roosters': 'MEUS GALOS',
+        'inv-hp-full': 'Este galo já está com a vida cheia!',
+        'inv-no-rooster': 'Você não tem galos para usar este item!',
+        'inv-used-msg': 'Usou',
         'inv-sell-btn': 'Vender',
         'inv-sell-prompt': 'Por quanto deseja vender este galo (RC)?',
         'inv-sell-success': 'Galo colocado à venda no leilão!',
@@ -231,8 +256,9 @@ const translations = {
         'tour-waiting': 'Aguardando...',
         'tour-error-no-rooster': 'Selecione um galo para o torneio!',
         'tour-error-balance': 'Saldo insuficiente para entrar no torneio!',
-        'tour-win-msg': '🏆 CAMPEÃO DO TORNEIO! Você ganhou o Jackpot!',
+        'tour-win-msg': '🏆 CAMPEÃO DO TORNEIO! Você ganhou o Jackpot de {jackpot} RC!',
         'tour-loss-msg': '☠️ ELIMINADO! Melhor sorte no próximo torneio.',
+        'tour-cpu-names': ['Bico de Ouro', 'Pena de Ferro', 'Galo de Briga', 'Espora Afiada', 'Cresta Rubra', 'Trovão Azul', 'Relâmpago', 'Sombra Verde', 'Fogo Vivo', 'Pedra Bruta'],
 
         // Fusion Success
         'fus-radiant-birth': 'Nascimento Radiante',
@@ -242,6 +268,12 @@ const translations = {
         'fus-hp-label': 'Vida Max',
         'fus-save-btn': 'GUARDAR NA MOCHILA',
 
+        // Color Names
+        'col-red-name': 'Rubro',
+        'col-blue-name': 'Oceânico',
+        'col-green-name': 'Silvestre',
+        'col-yellow-name': 'Solar',
+
         // Auth Errors
         'auth-error-server-500': 'Erro de servidor (500). Verifique a configuração da Trigger no Supabase.',
         'auth-error-no-user': 'Falha ao obter dados do usuário após registro.',
@@ -250,7 +282,9 @@ const translations = {
         'auth-error-email-unconfirmed': '⚠️ Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.',
         'auth-error-login-failed': 'Falha ao entrar.',
         'auth-error-invalid-credentials': 'Email ou senha incorretos.',
-        'auth-fill-all': 'Preencha todos os campos!'
+        'auth-fill-all': 'Preencha todos os campos!',
+
+        // --- UI ELEMENTS (DYNAMIC) ---
     },
     'en': {
         // Login & Register
@@ -297,6 +331,11 @@ const translations = {
         'sel-counter-info': 'Red > Blue > Green > Yellow > Red',
         'sel-preview-strength': 'STRENGTH',
         'sel-preview-type': 'TYPE',
+        'sel-team-preview': 'YOUR 3V3 TEAM',
+        'sel-team-ready': 'TEAM READY FOR BATTLE!',
+        'sel-team-incomplete': 'SELECT 3 ROOSTERS IN BACKPACK',
+        'sel-start-3v3': 'START 3V3 BATTLE',
+        'sel-select-3': 'INCOMPLETE TEAM',
         
         // Elements
         'el-fire': 'Fire',
@@ -310,11 +349,16 @@ const translations = {
         'btl-vs': 'VS',
         'btl-actions': 'Combat Actions',
         'btl-items': 'Items',
+        'btl-you': 'YOU',
+        'btl-opponent': 'OPPONENT',
         'btl-stunned': 'STUNNED!',
         'btl-critical': 'CRITICAL!',
         'btl-weak': 'WEAK...',
         'btl-processing': 'PROCESSING...',
-        'btl-error-login': 'You must be logged in to start a battle!',
+        'btl-float-heal': '🧪',
+        'btl-float-energy': '⚡',
+        'btl-float-burn': '🔥',
+        'btl-error-login': 'You need to be logged in to start a battle!',
         'btl-error-team': 'You need 3 roosters in your team!',
         'btl-error-server': 'Server connection error. Check your balance and try again.',
         
@@ -432,13 +476,26 @@ const translations = {
         'shop-auction-active': 'Active',
         'shop-success-buy': 'Rooster purchased successfully!',
         'shop-success-item': 'Item purchased successfully!',
+        'shop-success-rooster': 'Rooster purchased successfully!',
+        'shop-success-bid': 'Bid placed successfully!',
+        'shop-owned': 'Owned:',
+        'shop-error-bid-low': 'Bid too low',
+        'shop-error-not-found': 'Rooster not found',
+        'gen-level': 'Level',
+        'gen-lvl-prefix': 'Lvl',
 
         // Inventory
         'inv-title': 'MY BACKPACK',
         'inv-subtitle': 'Manage your combat team',
         'inv-empty': 'Your backpack is empty.<br>Visit the shop!',
         'inv-equip-btn': 'Equip',
-        'inv-remove-btn': 'Remove',
+        'inv-remove-btn': 'REMOVE',
+        'inv-no-items': 'NO SUPPLIES',
+        'inv-use-btn': 'USE',
+        'inv-my-roosters': 'MY ROOSTERS',
+        'inv-hp-full': 'This rooster is already at full health!',
+        'inv-no-rooster': 'You have no roosters to use this item on!',
+        'inv-used-msg': 'Used',
         'inv-sell-btn': 'Sell',
         'inv-sell-prompt': 'How much do you want to sell this rooster for (RC)?',
         'inv-sell-success': 'Rooster listed for sale in auction!',
@@ -484,8 +541,9 @@ const translations = {
         'tour-waiting': 'Waiting...',
         'tour-error-no-rooster': 'Select a rooster for the tournament!',
         'tour-error-balance': 'Insufficient balance to enter the tournament!',
-        'tour-win-msg': '🏆 TOURNAMENT CHAMPION! You won the Jackpot!',
+        'tour-win-msg': '🏆 TOURNAMENT CHAMPION! You won the {jackpot} RC Jackpot!',
         'tour-loss-msg': '☠️ ELIMINATED! Better luck in the next tournament.',
+        'tour-cpu-names': ['Golden Beak', 'Iron Feather', 'Fighting Cock', 'Sharp Spur', 'Crimson Crest', 'Blue Thunder', 'Lightning', 'Green Shadow', 'Living Fire', 'Rough Stone'],
 
         // Fusion Success
         'fus-radiant-birth': 'Radiant Birth',
@@ -494,6 +552,20 @@ const translations = {
         'fus-atk-label': 'Attack',
         'fus-hp-label': 'Max HP',
         'fus-save-btn': 'SAVE IN BACKPACK',
+
+        // Skills
+        'skill-f1-name': 'Thermal Peck', 'skill-f1-desc': 'Basic fire damage.',
+        'skill-f5-name': 'Solar Explosion', 'skill-f5-desc': 'High damage with burn chance.',
+        'skill-f10-name': 'Rising Phoenix', 'skill-f10-desc': 'Massive damage and heals some HP.',
+        'skill-w1-name': 'Water Jet', 'skill-w1-desc': 'Basic water damage.',
+        'skill-w5-name': 'Bubble Shield', 'skill-w5-desc': 'Creates a shield reducing next damage.',
+        'skill-w10-name': 'Tsunami', 'skill-w10-desc': 'Giant wave hitting with full force.',
+        'skill-e1-name': 'Rock Smash', 'skill-e1-desc': 'Basic earth damage.',
+        'skill-e5-name': 'Iron Armor', 'skill-e5-desc': 'Increases defense for 2 turns.',
+        'skill-e10-name': 'Earthquake', 'skill-e10-desc': 'High damage with stun chance.',
+        'skill-a1-name': 'Wind Cut', 'skill-a1-desc': 'Basic air damage.',
+        'skill-a5-name': 'Swift Dodge', 'skill-a5-desc': 'Greatly increases dodge chance.',
+        'skill-a10-name': 'Hurricane', 'skill-a10-desc': 'Ultra fast triple attack.',
 
         // Auth Errors
         'auth-error-server-500': 'Server error (500). Check Supabase Trigger configuration.',
@@ -550,6 +622,11 @@ const translations = {
         'sel-counter-info': 'Rojo > Azul > Verde > Amarillo > Rojo',
         'sel-preview-strength': 'FUERZA',
         'sel-preview-type': 'TIPO',
+        'sel-team-preview': 'TU EQUIPO 3V3',
+        'sel-team-ready': '¡EQUIPO LISTO PARA LA BATALLA!',
+        'sel-team-incomplete': 'SELECCIONA 3 GALLOS EN LA MOCHILA',
+        'sel-start-3v3': 'INICIAR BATALLA 3V3',
+        'sel-select-3': 'EQUIPO INCOMPLETO',
         
         // Elements
         'el-fire': 'Fuego',
@@ -563,6 +640,8 @@ const translations = {
         'btl-vs': 'VS',
         'btl-actions': 'Acciones de Combate',
         'btl-items': 'Objetos',
+        'btl-you': 'TÚ',
+        'btl-opponent': 'OPONENTE',
         'btl-stunned': '¡ATURDIDO!',
         'btl-critical': '¡CRÍTICO!',
         'btl-weak': 'DÉBIL...',
@@ -593,6 +672,8 @@ const translations = {
         'res-base-label': 'Base',
         'res-bonus-label': 'Bono',
         'res-paint-label': 'Pintura',
+        'gen-level': 'Nivel',
+        'gen-lvl-prefix': 'Niv',
         
         // Modals
         'mod-wallet-title': 'Billetera Digital',
@@ -685,13 +766,21 @@ const translations = {
         'shop-auction-active': 'Activo',
         'shop-success-buy': '¡Gallo adquirido con éxito!',
         'shop-success-item': '¡Objeto adquirido con éxito!',
+        'shop-success-rooster': '¡Gallo comprado con éxito!',
+        'shop-success-bid': '¡Puja realizada con éxito!',
 
         // Inventory
         'inv-title': 'MI MOCHILA',
         'inv-subtitle': 'Gestiona tu equipo de combate',
         'inv-empty': 'Tu mochila está vacía.<br>¡Visita la tienda!',
         'inv-equip-btn': 'Equipar',
-        'inv-remove-btn': 'Quitar',
+        'inv-remove-btn': 'REMOVER',
+        'inv-no-items': 'SIN SUMINISTROS',
+        'inv-use-btn': 'USAR',
+        'inv-my-roosters': 'MIS GALLOS',
+        'inv-hp-full': '¡Este gallo ya tiene la vida llena!',
+        'inv-no-rooster': '¡No tienes gallos para usar este objeto!',
+        'inv-used-msg': 'Usó',
         'inv-sell-btn': 'Vender',
         'inv-sell-prompt': '¿Por cuánto quieres vender este gallo (RC)?',
         'inv-sell-success': '¡Gallo puesto a la venta en subasta!',
@@ -737,8 +826,9 @@ const translations = {
         'tour-waiting': 'Esperando...',
         'tour-error-no-rooster': '¡Selecciona un gallo para el torneo!',
         'tour-error-balance': '¡Saldo insuficiente para entrar al torneo!',
-        'tour-win-msg': '🏆 ¡CAMPEÓN DEL TORNEO! ¡Has ganado el Jackpot!',
+        'tour-win-msg': '🏆 ¡CAMPEÓN DEL TORNEIO! ¡Has ganado el Jackpot de {jackpot} RC!',
         'tour-loss-msg': '☠️ ¡ELIMINADO! Más suerte en el próximo torneo.',
+        'tour-cpu-names': ['Pico de Oro', 'Pluma de Hierro', 'Gallo de Pelea', 'Espuela Afilada', 'Cresta Carmesí', 'Trueno Azul', 'Relámpago', 'Sombra Verde', 'Fuego Vivo', 'Piedra Bruta'],
 
         // Fusion Success
         'fus-radiant-birth': 'Nacimiento Radiante',
