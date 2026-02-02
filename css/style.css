@@ -58,8 +58,8 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
     max-width: 1200px;
     margin: 0 auto;
     padding: var(--spacing-md);
-    /* Dynamic padding based on fixed elements */
-    padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom) + 24px);
+    /* Dynamic padding: nav height + fixed action area height + safe area + extra buffer */
+    padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom) + 140px);
 }
 
 /* Container for fixed action buttons at bottom */
