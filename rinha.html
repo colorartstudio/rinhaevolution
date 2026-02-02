@@ -1261,6 +1261,13 @@
                     window.app.toggleChallengeModal();
                     startChallengeBattle(challengerData);
                 }
+            },
+            handleRinhaClick: () => {
+                if (state.inBattle) {
+                    window.app.showScreen('battle');
+                } else {
+                    window.app.showScreen('selection');
+                }
             }
         });
 
