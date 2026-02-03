@@ -30,5 +30,6 @@ export const AudioEngine = {
     playCrit: function() { this.playTone(800, 'sawtooth', 0.1, 0.1); setTimeout(() => this.playTone(600, 'square', 0.2, 0.2), 50); },
     playWin: function() { [261, 329, 392, 523].forEach((f, i) => setTimeout(() => this.playTone(f, 'square', 0.3, 0.1), i * 150)); },
     playLoss: function() { [400, 380, 360, 340].forEach((f, i) => setTimeout(() => this.playTone(f, 'sawtooth', 0.4, 0.15), i * 300)); },
+    playDefeat: function() { this.playTone(150, 'square', 0.5, 0.2); setTimeout(() => this.playTone(100, 'square', 0.4, 0.2), 100); },
     playClick: function() { this.playTone(800, 'sine', 0.05, 0.05); }
 };

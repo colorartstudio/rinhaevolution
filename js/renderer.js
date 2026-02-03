@@ -1,15 +1,15 @@
 import { ELEMENTS, COLORS, SKINS } from './state.js';
 
-export function renderAvatar(containerId, type, colorKey, skinKey = 'none') {
+export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGhost = false) {
     let container = document.getElementById(containerId + '-avatar');
     if (!container) container = document.getElementById(containerId);
     if (!container) return;
     
     container.innerHTML = '';
-    let bodyColor = '#cbd5e1'; 
-    let darkColor = '#64748b';
+    let bodyColor = isGhost ? '#4b5563' : '#cbd5e1'; 
+    let darkColor = isGhost ? '#1f2937' : '#64748b';
     
-    if (colorKey && COLORS[colorKey]) { 
+    if (!isGhost && colorKey && COLORS[colorKey]) { 
         bodyColor = COLORS[colorKey].hex; 
         darkColor = COLORS[colorKey].dark; 
     }
@@ -18,10 +18,14 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none') {
     if (!elData) return;
 
     const skin = SKINS[skinKey] || SKINS.none;
-    const filterStyle = skin.filter ? `style="filter: ${skin.filter}"` : "";
+    let filterStyle = skin.filter ? `style="filter: ${skin.filter}"` : "";
+    
+    if (isGhost) {
+        filterStyle = `style="filter: grayscale(1) opacity(0.5) contrast(0.8)"`;
+    }
 
-    const tailFill1 = elData.tailColor1; 
-    const tailFill2 = elData.tailColor2;
+    const tailFill1 = isGhost ? '#374151' : elData.tailColor1; 
+    const tailFill2 = isGhost ? '#111827' : elData.tailColor2;
     
     // --- Sistema de Cauda Profissional (Penas em Camadas) ---
     let tailGroup = "";
@@ -136,6 +140,11 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none') {
     </svg>
     `;
     container.innerHTML = svg;
+    
+    if (isGhost) {
+        showDeadEyes(container);
+        container.classList.add('anim-ko-l'); // Adiciona animação de tombar
+    }
 }
 
 export function showDeadEyes(container) {

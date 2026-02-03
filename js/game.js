@@ -22,22 +22,78 @@ import { SkillService, SKILLS } from './skills.js';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let playerActionResolve = null;
 
+// Helper defensivo para evitar erros de elemento nulo
+const safeSetText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = text;
+};
+
+const safeSetHTML = (id, html) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+};
+
+const safeAddClass = (id, className) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add(className);
+};
+
+const safeRemoveClass = (id, className) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove(className);
+};
+
+const safeSetStyle = (id, prop, value) => {
+    const el = document.getElementById(id);
+    if (el) el.style[prop] = value;
+};
+
+// Função para resetar o estado visual de todos os avatares (1v1 e 3v3)
+function resetAllAvatarStates() {
+    // Reset 1v1
+    const pAv = document.getElementById('player-avatar');
+    if (pAv) pAv.className = "w-36 h-36 md:w-52 md:h-52 transition-transform duration-300";
+    
+    const cAv = document.getElementById('cpu-avatar');
+    if (cAv) cAv.className = "w-36 h-36 md:w-52 md:h-52 scale-x-[-1] transition-transform duration-300";
+
+    // Reset 3v3
+    for (let i = 0; i < 3; i++) {
+        const pSlot = document.getElementById(`player-avatar-${i}`);
+        if (pSlot) pSlot.className = "w-20 h-20 xs:w-24 xs:h-24 md:w-32 md:h-32 transition-all duration-300";
+        
+        const cSlot = document.getElementById(`cpu-avatar-${i}`);
+        if (cSlot) cSlot.className = "w-20 h-20 xs:w-24 xs:h-24 md:w-32 md:h-32 scale-x-[-1] transition-all duration-300";
+        
+        // Limpa a seta de target se existir
+        const target = document.getElementById(`cpu-target-${i}`);
+        if (target) target.classList.add('hidden');
+    }
+}
+
 export async function useItem(itemId) {
     const item = state.gameData.inventory.items.find(i => i.id === itemId);
     if (!item || item.count <= 0) return;
 
-    // Se estiver em batalha, usar a lógica de batalha (já existe no menu de itens)
-    // Se estiver fora da batalha (Mochila), aplicar ao galo ativo ou primeiro do time
     const activeRoosters = TeamService.getTeamRoosters();
-    const target = activeRoosters[0] || state.gameData.inventory.roosters[0];
-
-    if (!target) {
-        alert(i18n.t('inv-no-rooster') || 'Você não tem galos para usar este item!');
+    
+    if (activeRoosters.length === 0) {
+        alert(i18n.t('inv-no-rooster') || 'Você não tem galos no time para usar este item!');
         return;
     }
 
+    let targetIdx = 0;
+    if (activeRoosters.length > 1) {
+        const names = activeRoosters.map((r, i) => `${i}: ${i18n.t('el-'+r.element)} (HP: ${Math.round(r.hp_current || r.hp || 100)}/${r.hp_max || 100})`).join('\n');
+        const choice = prompt(`Escolha o galo para usar ${i18n.t(item.nameKey)}:\n${names}`, "0");
+        targetIdx = parseInt(choice);
+        if (isNaN(targetIdx) || targetIdx < 0 || targetIdx >= activeRoosters.length) return;
+    }
+
+    const target = activeRoosters[targetIdx];
+
     if (item.type === 'heal') {
-        const currentHP = target.hp || target.hp_current || target.hp_max || 100;
+        const currentHP = target.hp_current || target.hp || target.hp_max || 100;
         const maxHP = target.hp_max || 100;
         
         if (currentHP >= maxHP) {
@@ -46,12 +102,11 @@ export async function useItem(itemId) {
         }
 
         const healValue = Math.round(maxHP * (item.value / 100));
-        target.hp = Math.min(maxHP, currentHP + healValue);
-        target.hp_current = target.hp; // Sincroniza propriedade
+        target.hp_current = Math.min(maxHP, currentHP + healValue);
+        target.hp = target.hp_current; 
         item.count--;
         
-        // Sincronizar com Supabase
-        if (state.gameData.user && !state.gameData.user.isGuest) {
+        if (state.gameData.user && state.gameData.user.id) {
             try {
                 const { supabase } = await import('./supabase.js');
                 await supabase.from('roosters')
@@ -63,18 +118,16 @@ export async function useItem(itemId) {
         }
         
         AudioEngine.playClick();
-        alert(`${i18n.t('inv-used-msg') || 'Usou'} ${i18n.t(item.nameKey) || item.name}!`);
+        alert(`${i18n.t('inv-used-msg') || 'Usou'} ${i18n.t(item.nameKey) || item.name} em ${i18n.t('el-'+target.element)}!`);
         
     } else if (item.type === 'energy') {
-        // Implementar lógica de energia se necessário fora de batalha
-        // Por enquanto apenas gasta o item se não estiver cheio
         item.count--;
         AudioEngine.playClick();
         alert(`${i18n.t('inv-used-msg') || 'Usou'} ${i18n.t(item.nameKey) || item.name}!`);
     }
 
     state.save();
-    updateInventoryUI();
+    if (window.app.updateInventoryUI) window.app.updateInventoryUI();
 }
 
 export function handleSkillClick(skillId) {
@@ -215,6 +268,7 @@ export async function checkBalanceAndStart() {
 }
 
 export function startRouletteSequence() {
+    AudioEngine.init();
     // state.currentArena já foi definido pelo servidor na função checkBalanceAndStart
     if (!state.currentArena) {
         state.currentArena = ARENAS[Math.floor(Math.random() * ARENAS.length)];
@@ -250,25 +304,26 @@ export function startRouletteSequence() {
 
 function finalizeRoulette() {
     AudioEngine.playTone(400, 'square', 0.2, 0.1);
-    const rName = document.getElementById('roulette-name');
-    const rIcon = document.getElementById('roulette-icon');
-    const bg = document.getElementById('arena-bg');
     
-    rName.innerText = i18n.t(`arena-${state.currentArena.id}`);
-    rIcon.innerText = state.currentArena.icon;
-    rName.classList.add('scale-125', 'text-yellow-400');
-    bg.className = `absolute inset-0 z-0 transition-colors duration-300 opacity-80 ${state.currentArena.class}`;
-    document.getElementById('roulette-flash').classList.add('anim-flash');
+    safeSetText('roulette-name', i18n.t(`arena-${state.currentArena.id}`));
+    safeSetText('roulette-icon', state.currentArena.icon);
+    safeAddClass('roulette-name', 'scale-125');
+    safeAddClass('roulette-name', 'text-yellow-400');
+    
+    const bg = document.getElementById('arena-bg');
+    if (bg) bg.className = `absolute inset-0 z-0 transition-colors duration-300 opacity-80 ${state.currentArena.class}`;
+    
+    safeAddClass('roulette-flash', 'anim-flash');
 
-    document.getElementById('arena-icon').innerText = state.currentArena.icon;
-    document.getElementById('arena-name').innerText = i18n.t(`arena-${state.currentArena.id}`);
+    safeSetText('arena-icon', state.currentArena.icon);
+    safeSetText('arena-name', i18n.t(`arena-${state.currentArena.id}`));
     const bEl = ELEMENTS[state.currentArena.bonusElement];
-    document.getElementById('arena-bonus-desc').innerText = `${i18n.t('btl-bonus')}: ${i18n.t(`el-${bEl.id}`)}`;
+    safeSetText('arena-bonus-desc', `${i18n.t('btl-bonus')}: ${i18n.t(`el-${bEl.id}`)}`);
 
     setTimeout(() => {
-        document.getElementById('roulette-overlay').style.opacity = '0';
+        safeSetStyle('roulette-overlay', 'opacity', '0');
         setTimeout(() => {
-            document.getElementById('roulette-overlay').style.display = 'none';
+            safeSetStyle('roulette-overlay', 'display', 'none');
         }, 500);
         startGame();
     }, 1500);
@@ -277,56 +332,82 @@ function finalizeRoulette() {
 function startGame() {
     const pGrid = document.getElementById('player-avatars-grid');
     const cGrid = document.getElementById('cpu-avatars-grid');
-    pGrid.innerHTML = '';
-    cGrid.innerHTML = '';
 
     if (state.gameMode === '3v3') {
-        const pTeam = TeamService.getTeamRoosters();
-        pTeam.forEach((gal, i) => {
-            const div = document.createElement('div');
-            div.id = `player-avatar-${i}`;
-            div.className = "w-24 h-24 transition-transform duration-300";
-            pGrid.appendChild(div);
-            renderAvatar(`player-avatar-${i}`, gal.element, gal.color);
-        });
+        // No modo 3v3, usamos a estrutura fixa do rinha.html que já contém as barras de HP/Energia
+        // Removemos qualquer avatar dinâmico de 1v1 que possa ter sido criado
+        const oldP = document.getElementById('player-avatar');
+        if (oldP) oldP.remove();
+        const oldC = document.getElementById('cpu-avatar');
+        if (oldC) oldC.remove();
 
-        if (state.cpuTeam && state.cpuTeam.length > 0) {
-            state.cpuTeam.forEach((gal, i) => {
-                const div = document.createElement('div');
-                div.id = `cpu-avatar-${i}`;
-                div.className = "w-24 h-24 scale-x-[-1] transition-transform duration-300";
-                cGrid.appendChild(div);
-                renderAvatar(`cpu-avatar-${i}`, gal.element, gal.color);
-            });
-        } else {
-            // Fallback caso cpuTeam esteja vazio (não deveria acontecer com a nova RPC)
-            for (let i = 0; i < 3; i++) {
-                const div = document.createElement('div');
-                div.id = `cpu-avatar-${i}`;
-                div.className = "w-24 h-24 scale-x-[-1] transition-transform duration-300";
-                cGrid.appendChild(div);
+        // Garantimos que o grid está no modo 3 colunas
+        if (pGrid) pGrid.className = "grid grid-cols-3 gap-4 w-full mb-6";
+        if (cGrid) cGrid.className = "grid grid-cols-3 gap-4 w-full";
+
+        const pTeam = TeamService.getTeamRoosters();
+        for (let i = 0; i < 3; i++) {
+            const slotId = `player-slot-${i}`;
+            if (pTeam[i]) {
+                safeRemoveClass(slotId, 'hidden');
+                renderAvatar(`player-avatar-${i}`, pTeam[i].element, pTeam[i].color, pTeam[i].dna?.skin || 'none');
+            } else {
+                safeAddClass(slotId, 'hidden');
+            }
+        }
+
+        const cTeam = state.cpuTeam || [];
+        for (let i = 0; i < 3; i++) {
+            const slotId = `cpu-slot-${i}`;
+            if (cTeam[i]) {
+                safeRemoveClass(slotId, 'hidden');
+                renderAvatar(`cpu-avatar-${i}`, cTeam[i].element, cTeam[i].color, 'none');
+            } else if (i === 0 && cTeam.length === 0) {
+                // Fallback para CPU única se cpuTeam estiver vazio
+                safeRemoveClass(slotId, 'hidden');
                 renderAvatar(`cpu-avatar-${i}`, state.cpu.element, state.cpu.color);
+            } else {
+                safeAddClass(slotId, 'hidden');
             }
         }
     } else {
+        // No modo 1v1, ocultamos os slots de time e criamos os avatares centrais amplos
+        for (let i = 0; i < 3; i++) {
+            const pSlot = document.getElementById(`player-slot-${i}`);
+            const cSlot = document.getElementById(`cpu-slot-${i}`);
+            if (pSlot) pSlot.classList.add('hidden');
+            if (cSlot) cSlot.classList.add('hidden');
+        }
+
+        // Alteramos o grid para centralizar o avatar único
+        if (pGrid) pGrid.className = "flex justify-center w-full mb-6";
+        if (cGrid) cGrid.className = "flex justify-center w-full";
+
+        // Removemos avatares antigos se existirem
+        const oldP = document.getElementById('player-avatar');
+        if (oldP) oldP.remove();
+        const oldC = document.getElementById('cpu-avatar');
+        if (oldC) oldC.remove();
+
         const pDiv = document.createElement('div');
         pDiv.id = 'player-avatar';
         pDiv.className = "w-36 h-36 md:w-52 md:h-52 transition-transform duration-300";
-        pGrid.appendChild(pDiv);
+        if (pGrid) pGrid.appendChild(pDiv);
         renderAvatar('player-avatar', state.player.element, state.player.color);
 
         const cDiv = document.createElement('div');
         cDiv.id = 'cpu-avatar';
         cDiv.className = "w-36 h-36 md:w-52 md:h-52 scale-x-[-1] transition-transform duration-300";
-        cGrid.appendChild(cDiv);
+        if (cGrid) cGrid.appendChild(cDiv);
         renderAvatar('cpu-avatar', state.cpu.element, state.cpu.color);
     }
 
-    document.getElementById('player-name-display').innerText = state.gameData.user.name;
-    document.getElementById('cpu-name-display').innerText = i18n.t('res-cpu');
-    document.getElementById('p-hp-bar').style.width = '100%';
-    document.getElementById('c-hp-bar').style.width = '100%';
-    document.getElementById('battle-stage').style.opacity = '1';
+    safeSetText('player-name-display', state.gameData.user.name);
+    safeSetText('cpu-name-display', i18n.t('res-cpu'));
+
+    safeSetStyle('p-hp-bar', 'width', '100%');
+    safeSetStyle('c-hp-bar', 'width', '100%');
+    safeSetStyle('battle-stage', 'opacity', '1');
     
     setTimeout(battleSequence, 1000);
 }
@@ -338,17 +419,17 @@ function showFinalResult3v3(playerWon, report) {
     const cGrid = document.getElementById('cpu-avatars-grid');
     
     if (playerWon === true) {
-        pGrid.classList.add('anim-winner-l');
-        cGrid.classList.add('opacity-50', 'grayscale');
+        if (pGrid) pGrid.classList.add('anim-winner-l');
+        if (cGrid) cGrid.classList.add('opacity-50', 'grayscale');
         AudioEngine.playWin();
     } else if (playerWon === false) {
-        cGrid.classList.add('anim-winner-r');
-        pGrid.classList.add('opacity-50', 'grayscale');
+        if (cGrid) cGrid.classList.add('anim-winner-r');
+        if (pGrid) pGrid.classList.add('opacity-50', 'grayscale');
         AudioEngine.playLoss();
     } else {
         // Empate
-        pGrid.classList.add('opacity-80');
-        cGrid.classList.add('opacity-80');
+        if (pGrid) pGrid.classList.add('opacity-80');
+        if (cGrid) cGrid.classList.add('opacity-80');
         AudioEngine.playClick();
     }
     
@@ -361,24 +442,35 @@ async function showPlayerSkills(rooster) {
     const timerEl = document.getElementById('turn-timer');
     const skills = SkillService.getSkillsForRooster(rooster.element, rooster.level);
     
+    let timerInterval = null;
+
+    const cleanupTimer = () => {
+        if (timerInterval) clearInterval(timerInterval);
+        if (timerEl) timerEl.classList.add('hidden');
+    };
+
     container.innerHTML = '';
     skills.forEach(skill => {
-        const canAfford = rooster.energy >= skill.cost;
+        const canAfford = (rooster.energy || 0) >= skill.cost;
         const btn = document.createElement('button');
         if (canAfford) {
             btn.onclick = () => {
                 cleanupTimer();
                 handleSkillClick(skill.id);
             };
-            btn.className = "flex flex-col items-center justify-center p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all active:scale-95 group";
+            btn.className = "flex flex-col items-center justify-center p-3 bg-gradient-to-b from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 border-2 border-slate-700 hover:border-yellow-500/50 rounded-2xl transition-all active:scale-95 group shadow-lg ring-1 ring-yellow-500/20";
         } else {
-            btn.className = "flex flex-col items-center justify-center p-2 bg-slate-900 border border-slate-800 rounded-xl opacity-50 cursor-not-allowed";
+            btn.className = "flex flex-col items-center justify-center p-3 bg-slate-900 border-2 border-slate-800 rounded-2xl opacity-40 cursor-not-allowed shadow-inner";
         }
         btn.innerHTML = `
-            <span class="text-[10px] font-black text-white uppercase ${canAfford ? 'group-hover:text-yellow-500' : 'text-slate-600'}">${i18n.t(skill.nameKey)}</span>
-            <div class="flex items-center gap-1 mt-0.5">
-                <span class="text-[8px] text-slate-500 uppercase">${skill.multiplier}x</span>
-                <span class="text-[8px] ${canAfford ? 'text-blue-400' : 'text-red-500'} font-bold">${skill.cost} MP</span>
+            <span class="text-[11px] font-black text-white uppercase tracking-wider ${canAfford ? 'group-hover:text-yellow-400' : 'text-slate-600'}">${i18n.t(skill.nameKey)}</span>
+            <div class="flex items-center gap-2 mt-1">
+                <div class="flex items-center bg-black/40 px-1.5 py-0.5 rounded-md border border-white/5">
+                    <span class="text-[9px] text-yellow-500/80 font-bold">${skill.multiplier}x</span>
+                </div>
+                <div class="flex items-center bg-blue-900/30 px-1.5 py-0.5 rounded-md border border-blue-500/20">
+                    <span class="text-[9px] ${canAfford ? 'text-blue-300' : 'text-red-400'} font-black">${skill.cost} MP</span>
+                </div>
             </div>
         `;
         container.appendChild(btn);
@@ -386,21 +478,21 @@ async function showPlayerSkills(rooster) {
     
     panel.classList.remove('hidden');
     
-    // Timer Logic
+    // Timer Logic: Ativado para 15 segundos (Padrão Competitivo)
     let timeLeft = 15;
     if (timerEl) {
         timerEl.classList.remove('hidden');
         timerEl.innerText = `${timeLeft}s`;
     }
 
-    const timerInterval = setInterval(() => {
+    timerInterval = setInterval(() => {
         timeLeft--;
         if (timerEl) timerEl.innerText = `${timeLeft}s`;
         
         if (timeLeft <= 0) {
             cleanupTimer();
             // Auto-select first affordable skill or just first skill
-            const defaultSkill = skills.find(s => s.cost <= rooster.energy) || skills[0];
+            const defaultSkill = skills.find(s => s.cost <= (rooster.energy || 0)) || skills[0];
             if (defaultSkill) {
                 handleSkillClick(defaultSkill.id);
             } else {
@@ -408,11 +500,6 @@ async function showPlayerSkills(rooster) {
             }
         }
     }, 1000);
-
-    const cleanupTimer = () => {
-        clearInterval(timerInterval);
-        if (timerEl) timerEl.classList.add('hidden');
-    };
 
     // Override toggleItemMenu to also cleanup timer if an item is selected
     const originalHandleItemClick = window.app.handleItemClick;
@@ -497,15 +584,15 @@ async function battleSequence() {
                 cStatus.shield = 1;
 
                 // Frenesi: Animações mais rápidas
-                pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(300);
-                cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
+                if (pAv) pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(300);
+                if (cAv) cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
                 
                 // Feedback visual de Crítico/Fraco
                 let floatMsg = `-${dmgC}`;
                 if (advDmg.type === 'critical') floatMsg = `${i18n.t('btl-critical')} ${floatMsg}`;
                 if (advDmg.type === 'weak') floatMsg = `${i18n.t('btl-weak')} ${floatMsg}`;
                 
-                showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical'); 
+                if (cAv) showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical'); 
                 updateHealth('c-hp-bar', (dmgC / cRooster.hp_max) * 100);
                 cHP -= dmgC;
 
@@ -517,7 +604,7 @@ async function battleSequence() {
                     const heal = Math.round(pRooster.hp_max * (skill.value / 100));
                     pHP = Math.min(pRooster.hp_max, pHP + heal);
                     updateHealth('p-hp-bar', -(heal / pRooster.hp_max) * 100);
-                    showFloatingText(pAv, `+${heal}`, 'left', false);
+                    if (pAv) showFloatingText(pAv, `+${heal}`, 'left', false);
                 }
             } else if (action.type === 'item') {
                 const item = state.gameData.inventory.items.find(i => i.id === action.id);
@@ -526,19 +613,22 @@ async function battleSequence() {
                     const heal = Math.round(pRooster.hp_max * (item.value / 100));
                     pHP = Math.min(pRooster.hp_max, pHP + heal);
                     updateHealth('p-hp-bar', -(heal / pRooster.hp_max) * 100);
-                    showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
+                    if (pAv) showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
                 } else if (item.type === 'energy') {
                     pRooster.energy = Math.min(pRooster.energy_max, pRooster.energy + item.value);
                     updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max);
-                    showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
+                    if (pAv) showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
                 }
                 AudioEngine.playClick();
                 await sleep(500);
             }
 
-            await sleep(400); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(600);
+            await sleep(400); 
+            if (pAv) pAv.classList.remove('anim-atk-l'); 
+            if (cAv) cAv.classList.remove('anim-hit'); 
+            await sleep(600);
         } else {
-            showFloatingText(pAv, i18n.t('btl-stunned'), 'left', false);
+            if (pAv) showFloatingText(pAv, i18n.t('btl-stunned'), 'left', false);
             pStatus.stun = false;
             await sleep(1000);
         }
@@ -579,14 +669,14 @@ async function battleSequence() {
 
             pStatus.shield = 1;
 
-            cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(300);
-            pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
+            if (cAv) cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(300);
+            if (pAv) pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
             
             let floatMsgP = `-${dmgP}`;
             if (advDmgP.type === 'critical') floatMsgP = `${i18n.t('btl-critical')} ${floatMsgP}`;
             if (advDmgP.type === 'weak') floatMsgP = `${i18n.t('btl-weak')} ${floatMsgP}`;
 
-            showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical'); 
+            if (pAv) showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical'); 
             updateHealth('p-hp-bar', (dmgP / pRooster.hp_max) * 100);
             pHP -= dmgP;
 
@@ -595,9 +685,12 @@ async function battleSequence() {
             if (cSkill.effect === 'shield') cStatus.shield = cSkill.value;
             if (cSkill.effect === 'def') cStatus.def = cSkill.value;
 
-            await sleep(400); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(600);
+            await sleep(400); 
+            if (cAv) cAv.classList.remove('anim-atk-r'); 
+            if (pAv) pAv.classList.remove('anim-hit'); 
+            await sleep(600);
         } else {
-            showFloatingText(cAv, i18n.t('btl-stunned'), 'right', false);
+            if (cAv) showFloatingText(cAv, i18n.t('btl-stunned'), 'right', false);
             cStatus.stun = false;
             await sleep(1000);
         }
@@ -679,212 +772,346 @@ async function battleSequence() {
     showDetailedResult(winValue, report);
 }
 
+let currentTargetIdx = 0;
+let targetResolve = null;
+
+export function setTarget(idx, side) {
+    if (side === 'cpu') {
+        currentTargetIdx = idx;
+        // Visual feedback
+        for (let i = 0; i < 3; i++) {
+            const targetEl = document.getElementById(`cpu-target-${i}`);
+            if (targetEl) {
+                if (i === idx) targetEl.classList.remove('hidden');
+                else targetEl.classList.add('hidden');
+            }
+        }
+        if (targetResolve) {
+            const resolve = targetResolve;
+            targetResolve = null;
+            resolve(idx);
+        }
+    }
+}
+
+export function selectActiveRooster(idx) {
+    // Para uso futuro em estratégias mais complexas
+    console.log("Selected active rooster:", idx);
+}
+
+// Engenharia Avançada: Sistema de Resistência (Damage Gating)
+// Garante que um galo não morra em uma única rodada de ataques sequenciais (3 ataques)
+const RESISTANCE_THRESHOLD = 0.45; // Máximo de 45% de HP perdido por rodada de equipe
+
+function applyDamageWithResistance(currentHP, maxHP, damage, roundDamageTaken) {
+    const maxDamageThisRound = maxHP * RESISTANCE_THRESHOLD;
+    const remainingAllowedDamage = Math.max(0, maxDamageThisRound - roundDamageTaken);
+    
+    let finalDamage = Math.min(damage, remainingAllowedDamage);
+    
+    // Se o dano for bloqueado pela resistência, ainda aplicamos um dano mínimo de "impacto"
+    if (damage > remainingAllowedDamage && remainingAllowedDamage > 0) {
+        finalDamage = remainingAllowedDamage;
+    } else if (remainingAllowedDamage <= 0) {
+        finalDamage = Math.max(1, Math.round(damage * 0.05)); // 5% de dano residual após atingir o limite
+    }
+
+    const newHP = Math.max(currentHP - finalDamage, currentHP > 1 ? 1 : 0); // Mantém 1 HP se ainda tiver resistência
+    return {
+        newHP,
+        actualDamage: Math.round(currentHP - newHP)
+    };
+}
+
 async function battleSequence3v3() {
     const pTeam = TeamService.getTeamRoosters();
     const cTeam = state.cpuTeam;
     const MAX_ROUNDS = 100;
     
-    let pHP = 300; 
-    let cHP = 300;
-
-    // Reset energy for all team members
-    pTeam.forEach(r => r.energy = r.energy_max || 100);
-    cTeam.forEach(r => r.energy = r.energy_max || 100);
+    // Reset visual absoluto antes de iniciar
+    resetAllAvatarStates();
     
-    // Regra de Empate (Time idêntico)
+    // Inicialização de HP e Energia Individuais
+    let pHP = pTeam.map(r => r.hp_max || 100);
+    let cHP = cTeam.map(r => 100); // CPU base 100
+    const pMaxHP = [...pHP];
+    const cMaxHP = [...cHP];
+    
+    let pEnergy = pTeam.map(r => r.energy_max || 100);
+    let cEnergy = cTeam.map(() => 100);
+
     const isTieBattle = pTeam.length === cTeam.length && pTeam.every((r, i) => isIdentical(r, cTeam[i]));
 
-    let i = 0;
-    while (pHP > 0 && cHP > 0 && i < MAX_ROUNDS) {
-        const pIdx = i % pTeam.length;
-        const cIdx = i % cTeam.length;
-        
-        const pGal = pTeam[pIdx];
-        const cGal = cTeam[cIdx];
-        
-        // Robustez: Garantir atributos para CPU e Player
-        pGal.level = pGal.level || 1;
-        pGal.atk = pGal.atk || 100;
-        pGal.energy_max = pGal.energy_max || 100;
-        
-        cGal.level = cGal.level || 1;
-        cGal.atk = cGal.atk || 100;
-        cGal.energy_max = cGal.energy_max || 100;
-        
-        const pAv = document.getElementById(`player-avatar-${pIdx}`);
-        const cAv = document.getElementById(`cpu-avatar-${cIdx}`);
+    // Renderizar Avatares Iniciais
+    pTeam.forEach((r, idx) => renderAvatar(`player-avatar-${idx}`, r.element, r.color, r.dna?.skin || 'none'));
+    cTeam.forEach((r, idx) => renderAvatar(`cpu-avatar-${idx}`, r.element, r.color, 'none'));
 
-        const pStatus = { element: pGal.element, color: pGal.color, shield: 1, def: 1 };
-        const cStatus = { element: cGal.element, color: cGal.color, shield: 1, def: 1 };
+    // Reset UI
+    updateTotalHP(pHP, cHP);
+    pTeam.forEach((_, idx) => {
+        updateSlotHP('p', idx, 100);
+        updateSlotEnergy('p', idx, 100);
+    });
+    cTeam.forEach((_, idx) => {
+        updateSlotHP('c', idx, 100);
+    });
 
-        // Energy Regen
-        pGal.energy = Math.min(pGal.energy_max || 100, pGal.energy + 20);
-        cGal.energy = Math.min(cGal.energy_max || 100, cGal.energy + 20);
-        updateEnergy('p-en-bar', pGal.energy, pGal.energy_max || 100);
+    // Definir primeiro alvo automático
+    setTarget(0, 'cpu');
+
+    let round = 0;
+    while (pHP.some(h => h > 0) && cHP.some(h => h > 0) && round < MAX_ROUNDS) {
         
-        // --- PLAYER TURN ---
-        const action = await showPlayerSkills(pGal);
-        if (action.type === 'skill') {
-            const skill = SKILLS[pGal.element]?.find(s => s.id === action.id) || SKILLS.fire[0];
-            pGal.energy -= (skill.cost || 0);
-            updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
+        // --- TURNO DA EQUIPE JOGADOR ---
+        let pRoundDamageTakenByCPU = cHP.map(() => 0); 
+        
+        let autoAction = null; // Armazena a ação escolhida pelo primeiro galo para guiar os outros
 
-            const advDmg = calculateAdvancedDamage(pGal.atk, skill.multiplier || 1, pGal.level, state.currentArena, pGal.element, pGal.color, cStatus);
-            let dmgC = advDmg.value;
+        for (let pIdx = 0; pIdx < pTeam.length; pIdx++) {
+            if (pHP[pIdx] <= 0) continue; 
             
-            if (isTieBattle) dmgC = Math.round(300 / rounds);
-            else dmgC = Math.max(1, Math.round(dmgC * 0.25)); // Redutor 3v3 ajustado para ~15s
-            
-            pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(300);
-            cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
-            
-            if (skill.effect === 'heal') {
-                const heal = Math.round(300 * (skill.value / 100));
-                pHP = Math.min(300, pHP + heal);
-                updateHealth('p-hp-bar', -(heal / 300) * 100);
-                showFloatingText(pAv, `+${heal}`, 'left', false);
+            // Verificação de Alvo Dinâmica: Se o alvo atual morreu, busca o próximo automaticamente
+            if (cHP[currentTargetIdx] <= 0) {
+                const nextAlive = cHP.findIndex(h => h > 0);
+                if (nextAlive === -1) break; // Todos os inimigos derrotados
+                setTarget(nextAlive, 'cpu');
             }
             
-            let floatMsg = `-${dmgC}`;
-            if (advDmg.type === 'critical') floatMsg = `${i18n.t('btl-critical')} ${floatMsg}`;
-            if (advDmg.type === 'weak') floatMsg = `${i18n.t('btl-weak')} ${floatMsg}`;
+            const playerTargetIdx = currentTargetIdx;
+            const pGal = pTeam[pIdx];
+            const pAv = document.getElementById(`player-avatar-${pIdx}`);
+            const cAv = document.getElementById(`cpu-avatar-${playerTargetIdx}`);
+            
+            // Aplica Efeitos Visuais de Foco (Game Design)
+            pTeam.forEach((_, i) => {
+                const el = document.getElementById(`player-avatar-${i}`);
+                if (el) {
+                    el.classList.remove('active-rooster', 'inactive-rooster');
+                    el.classList.add(i === pIdx ? 'active-rooster' : 'inactive-rooster');
+                }
+            });
+            if (cAv) cAv.classList.add('target-rooster');
 
-            showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical'); 
-            updateHealth('c-hp-bar', (dmgC / 300) * 100);
-            cHP -= dmgC;
-        } else if (action.type === 'item') {
-            const item = state.gameData.inventory.items.find(it => it.id === action.id);
-            item.count--;
-            if (item.type === 'heal') {
-                const heal = 50; 
-                pHP = Math.min(300, pHP + heal);
-                updateHealth('p-hp-bar', -(heal / 300) * 100);
-                showFloatingText(pAv, `+${heal} ${i18n.t('btl-float-heal')}`, 'left', false);
-            } else if (item.type === 'energy') {
-                pGal.energy = Math.min(pGal.energy_max, pGal.energy + item.value);
-                updateEnergy('p-en-bar', pGal.energy, pGal.energy_max);
-                showFloatingText(pAv, `+${item.value} ${i18n.t('btl-float-energy')}`, 'left', false);
+            pEnergy[pIdx] = Math.min(100, pEnergy[pIdx] + 15);
+            updateSlotEnergy('p', pIdx, pEnergy[pIdx]);
+            pGal.energy = pEnergy[pIdx]; // Sincroniza energia para a interface de habilidades
+
+            // AUTOMAÇÃO: Se for o primeiro galo vivo, pede comando. Se não, segue automaticamente.
+            let action;
+            if (!autoAction) {
+                action = await showPlayerSkills(pGal);
+                autoAction = action; // Define o padrão para o restante da equipe nesta rodada
+            } else {
+                // Seleção Automática para os galos seguintes
+                if (autoAction.type === 'skill') {
+                    const skills = SkillService.getSkillsForRooster(pGal.element, pGal.level);
+                    const bestSkill = skills.find(s => s.cost <= pEnergy[pIdx]) || skills[0];
+                    action = { type: 'skill', id: bestSkill.id };
+                } else {
+                    // Se o primeiro usou item, os outros usam sua melhor skill (não gastamos 3 itens de uma vez)
+                    const skills = SkillService.getSkillsForRooster(pGal.element, pGal.level);
+                    action = { type: 'skill', id: skills[0].id };
+                }
+                await sleep(600); // Delay dramático para ver a sequência
             }
-            await sleep(500);
+
+            if (action.type === 'skill') {
+                const skill = SKILLS[pGal.element]?.find(s => s.id === action.id) || SKILLS.fire[0];
+                pEnergy[pIdx] -= (skill.cost || 0);
+                updateSlotEnergy('p', pIdx, pEnergy[pIdx]);
+
+                const cGal = cTeam[playerTargetIdx];
+                const cStatus = { element: cGal.element, color: cGal.color, shield: 1, def: 1 };
+
+                const advDmg = calculateAdvancedDamage(pGal.atk, skill.multiplier || 1, pGal.level, state.currentArena, pGal.element, pGal.color, cStatus);
+                
+                const resResult = applyDamageWithResistance(cHP[playerTargetIdx], cMaxHP[playerTargetIdx], advDmg.value, pRoundDamageTakenByCPU[playerTargetIdx]);
+                const dmg = resResult.actualDamage;
+                cHP[playerTargetIdx] = resResult.newHP;
+                pRoundDamageTakenByCPU[playerTargetIdx] += dmg;
+
+                if (pAv) pAv.classList.add('anim-atk-l'); AudioEngine.playAttack(); await sleep(300);
+                if (cAv) cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
+
+                if (skill.effect === 'heal') {
+                    const heal = Math.round(pGal.hp_max * (skill.value / 100));
+                    pHP[pIdx] = Math.min(pGal.hp_max, pHP[pIdx] + heal);
+                    updateSlotHP('p', pIdx, (pHP[pIdx] / pGal.hp_max) * 100);
+                    if (pAv) showFloatingText(pAv, `+${heal}`, 'left', false);
+                } else {
+                    updateSlotHP('c', playerTargetIdx, (cHP[playerTargetIdx] / cMaxHP[playerTargetIdx]) * 100);
+                    
+                    let floatMsg = `-${dmg}`;
+                    if (advDmg.type === 'critical') floatMsg = `${i18n.t('btl-critical')} ${floatMsg}`;
+                    if (advDmg.type === 'weak') floatMsg = `${i18n.t('btl-weak')} ${floatMsg}`;
+                    if (cAv) showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical');
+
+                    if (cHP[playerTargetIdx] <= 0) {
+                        AudioEngine.playDefeat();
+                        renderAvatar(`cpu-avatar-${playerTargetIdx}`, cGal.element, cGal.color, 'none', true);
+                    }
+                }
+            } else if (action.type === 'item') {
+                const item = state.gameData.inventory.items.find(it => it.id === action.id);
+                if (item) {
+                    item.count--;
+                    if (item.type === 'heal') {
+                        const heal = 40;
+                        pHP[pIdx] = Math.min(pGal.hp_max, pHP[pIdx] + heal);
+                        updateSlotHP('p', pIdx, (pHP[pIdx] / pGal.hp_max) * 100);
+                        if (pAv) showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
+                    } else if (item.type === 'energy') {
+                        pEnergy[pIdx] = Math.min(100, pEnergy[pIdx] + 30);
+                        updateSlotEnergy('p', pIdx, pEnergy[pIdx]);
+                        if (pAv) showFloatingText(pAv, `+30 ⚡`, 'left', false);
+                    }
+                }
+            }
+
+            updateTotalHP(pHP, cHP);
+            await sleep(400); 
+            if (pAv) pAv.classList.remove('anim-atk-l'); 
+            // Limpeza de efeitos visuais por galo
+            if (cAv) cAv.classList.remove('target-rooster');
         }
 
-        await sleep(400); pAv.classList.remove('anim-atk-l'); cAv.classList.remove('anim-hit'); await sleep(600);
+        // Limpeza final de efeitos visuais da rodada do jogador
+        pTeam.forEach((_, i) => {
+            const el = document.getElementById(`player-avatar-${i}`);
+            if (el) el.classList.remove('active-rooster', 'inactive-rooster');
+        });
 
-        if (cHP <= 0) break;
+        if (!cHP.some(h => h > 0)) break;
 
-        // --- CPU TURN ---
-        const cSkills = SkillService.getSkillsForRooster(cGal.element, cGal.level);
-        const affordableSkills = cSkills.filter(s => s.cost <= cGal.energy);
-        const cSkill = affordableSkills.length > 0 ? affordableSkills[Math.floor(Math.random() * affordableSkills.length)] : cSkills[0];
+        await sleep(800); // Delay estratégico entre turnos para fluidez
+
+        // --- TURNO DA EQUIPE CPU ---
+        let cRoundDamageTakenByPlayer = pHP.map(() => 0);
         
-        if (!cSkill) {
-            console.warn("CPU sem habilidades disponíveis para o nível", cGal.level);
-            await sleep(1000);
-            continue; 
+        for (let cIdx = 0; cIdx < cTeam.length; cIdx++) {
+            if (cHP[cIdx] <= 0) continue;
+            
+            // Verificação de Alvo Dinâmica para CPU
+            const alivePlayers = pHP.map((h, idx) => h > 0 ? idx : -1).filter(idx => idx !== -1);
+            if (alivePlayers.length === 0) break;
+            
+            // CPU tenta manter o foco no alvo atual se ele estiver vivo, senão escolhe outro
+            let cpuTargetIdx = alivePlayers.includes(currentTargetIdx) ? currentTargetIdx : alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+            
+            const cGal = cTeam[cIdx];
+            const cAv = document.getElementById(`cpu-avatar-${cIdx}`);
+            const pAv = document.getElementById(`player-avatar-${cpuTargetIdx}`);
+            
+            // Efeitos Visuais CPU
+            cTeam.forEach((_, i) => {
+                const el = document.getElementById(`cpu-avatar-${i}`);
+                if (el) {
+                    el.classList.remove('active-rooster', 'inactive-rooster');
+                    el.classList.add(i === cIdx ? 'active-rooster' : 'inactive-rooster');
+                }
+            });
+            if (pAv) pAv.classList.add('target-rooster');
+
+            const pGal = pTeam[cpuTargetIdx];
+            const pStatus = { element: pGal.element, color: pGal.color, shield: 1, def: 1 };
+
+            cEnergy[cIdx] = Math.min(100, cEnergy[cIdx] + 15);
+
+            const cSkills = SkillService.getSkillsForRooster(cGal.element, 1);
+            const cSkill = cSkills[Math.floor(Math.random() * cSkills.length)];
+
+            const advDmgP = calculateAdvancedDamage(cGal.atk, cSkill.multiplier, 1, state.currentArena, cGal.element, cGal.color, pStatus);
+            
+            const resResultP = applyDamageWithResistance(pHP[cpuTargetIdx], pMaxHP[cpuTargetIdx], advDmgP.value, cRoundDamageTakenByPlayer[cpuTargetIdx]);
+            const dmgP = resResultP.actualDamage;
+            pHP[cpuTargetIdx] = resResultP.newHP;
+            cRoundDamageTakenByPlayer[cpuTargetIdx] += dmgP;
+
+            if (cAv) cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(300);
+            if (pAv) pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
+
+            updateSlotHP('p', cpuTargetIdx, (pHP[cpuTargetIdx] / pMaxHP[cpuTargetIdx]) * 100);
+            
+            let floatMsgP = `-${dmgP}`;
+            if (advDmgP.type === 'critical') floatMsgP = `${i18n.t('btl-critical')} ${floatMsgP}`;
+            if (pAv) showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical');
+
+            if (pHP[cpuTargetIdx] <= 0) {
+                AudioEngine.playDefeat();
+                renderAvatar(`player-avatar-${cpuTargetIdx}`, pGal.element, pGal.color, pGal.dna?.skin || 'none', true);
+            }
+
+            updateTotalHP(pHP, cHP);
+            await sleep(400); 
+            if (cAv) cAv.classList.remove('anim-atk-r'); 
+            if (pAv) pAv.classList.remove('target-rooster');
+            await sleep(400); 
         }
 
-        cGal.energy -= cSkill.cost;
-        updateEnergy('c-en-bar', cGal.energy, cGal.energy_max);
-
-        const advDmgP = calculateAdvancedDamage(cGal.atk, cSkill.multiplier, cGal.level, state.currentArena, cGal.element, cGal.color, pStatus);
-        let dmgP = advDmgP.value;
+        // Limpeza final de efeitos visuais da rodada CPU
+        cTeam.forEach((_, i) => {
+            const el = document.getElementById(`cpu-avatar-${i}`);
+            if (el) el.classList.remove('active-rooster', 'inactive-rooster');
+        });
         
-        if (isTieBattle) dmgP = Math.round(300 / rounds);
-        else dmgP = Math.max(1, Math.round(dmgP * 0.25));
-
-        cAv.classList.add('anim-atk-r'); AudioEngine.playAttack(); await sleep(300);
-        pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
-
-        let floatMsgP = `-${dmgP}`;
-        if (advDmgP.type === 'critical') floatMsgP = `${i18n.t('btl-critical')} ${floatMsgP}`;
-        if (advDmgP.type === 'weak') floatMsgP = `${i18n.t('btl-weak')} ${floatMsgP}`;
-
-        showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical'); 
-        updateHealth('p-hp-bar', (dmgP / 300) * 100);
-        pHP -= dmgP;
-
-        await sleep(400); cAv.classList.remove('anim-atk-r'); pAv.classList.remove('anim-hit'); await sleep(600);
-
-        if (pHP <= 0) break;
-        i++;
+        round++;
     }
 
+    // Determinar Resultado Final
     let result = 'loss';
-    if (isTieBattle || (pHP <= 0 && cHP <= 0) || (pHP === cHP)) {
-        result = 'tie';
-    } else if (pHP > cHP) {
-        result = 'win';
-    }
+    const pAlive = pHP.some(h => h > 0);
+    const cAlive = cHP.some(h => h > 0);
+
+    if (!pAlive && !cAlive) result = 'tie';
+    else if (pAlive) result = 'win';
 
     const playerWon = result === 'win' ? true : (result === 'loss' ? false : null);
-
+    
+    // Animações Finais
     if (result === 'win') {
-        triggerHaptic('heavy');
-        pTeam.forEach((r, idx) => {
-            const av = document.getElementById(`player-avatar-${idx}`);
-            if (av) av.classList.add('anim-winner-l');
-        });
-        cTeam.forEach((r, idx) => {
-            const av = document.getElementById(`cpu-avatar-${idx}`);
-            if (av) {
-                av.classList.add('anim-ko-r', 'grayscale', 'opacity-60');
-                showDeadEyes(av);
-            }
-        });
+        AudioEngine.playWin();
+        pHP.forEach((h, idx) => { if (h > 0) document.getElementById(`player-avatar-${idx}`).classList.add('anim-winner-l'); });
     } else if (result === 'loss') {
-        cTeam.forEach((r, idx) => {
-            const av = document.getElementById(`cpu-avatar-${idx}`);
-            if (av) av.classList.add('anim-winner-r');
-        });
-        pTeam.forEach((r, idx) => {
-            const av = document.getElementById(`player-avatar-${idx}`);
-            if (av) {
-                av.classList.add('anim-ko-l', 'grayscale', 'opacity-60');
-                showDeadEyes(av);
-            }
-        });
-    } else {
-        // Tie visual
-        pTeam.forEach((r, idx) => {
-            const av = document.getElementById(`player-avatar-${idx}`);
-            if (av) av.classList.add('opacity-80');
-        });
-        cTeam.forEach((r, idx) => {
-            const av = document.getElementById(`cpu-avatar-${idx}`);
-            if (av) av.classList.add('opacity-80');
-        });
+        AudioEngine.playLoss();
+        cHP.forEach((h, idx) => { if (h > 0) document.getElementById(`cpu-avatar-${idx}`).classList.add('anim-winner-r'); });
     }
 
     saveMatchResult(playerWon, pTeam[0].element, pTeam[0].color);
     
-    // Engenharia de Dados: Gerar relatório real para 3v3
-    const avgPAtk = Math.round(pTeam.reduce((acc, r) => acc + (r.atk || 100), 0) / pTeam.length);
-    const avgCAtk = Math.round(cTeam.reduce((acc, r) => acc + (r.atk || 100), 0) / cTeam.length);
-    
-    const arenaBonusP = pTeam.some(r => r.element === state.currentArena.bonusElement) ? 1.25 : 1;
-    const colorBonusP = pTeam.some(r => r.color === state.currentArena.color) ? 1.30 : 1;
-    
-    const arenaBonusC = cTeam.some(r => r.element === state.currentArena.bonusElement) ? 1.25 : 1;
-    const colorBonusC = cTeam.some(r => r.color === state.currentArena.color) ? 1.30 : 1;
-
+    // Relatório
     const report = {
         arena: i18n.t(`arena-${state.currentArena.id}`),
-        p: { 
-            base: avgPAtk, 
-            final: Math.round(pHP), 
-            arena: arenaBonusP > 1, 
-            color: colorBonusP > 1
-        },
-        c: { 
-            base: avgCAtk, 
-            final: Math.round(cHP), 
-            arena: arenaBonusC > 1, 
-            color: colorBonusC > 1
-        }
+        p: { base: ELEMENT_BASE_STRENGTH[pTeam[0].element], final: Math.round(pHP.reduce((a, b) => a + b, 0)), arena: pTeam.some(r => r.element === state.currentArena.id), color: true },
+        c: { base: ELEMENT_BASE_STRENGTH[cTeam[0].element], final: Math.round(cHP.reduce((a, b) => a + b, 0)), arena: cTeam.some(r => r.element === state.currentArena.id), color: true }
     };
 
     await sleep(3000); 
     showFinalResult3v3(playerWon, report);
+}
+
+function updateSlotHP(side, idx, percent) {
+    const bar = document.getElementById(`${side}-hp-bar-${idx}`);
+    if (bar) bar.style.width = `${percent}%`;
+}
+
+function updateSlotEnergy(side, idx, energy) {
+    const bar = document.getElementById(`${side}-en-bar-${idx}`);
+    if (bar) bar.style.width = `${energy}%`;
+}
+
+function updateTotalHP(pHPArray, cHPArray) {
+    const pTotal = pHPArray.reduce((a, b) => a + b, 0);
+    const cTotal = cHPArray.reduce((a, b) => a + b, 0);
+    const pMax = 300; // Ajustado para MVP
+    const cMax = 300;
+
+    updateHealth('p-hp-bar', 100 - (pTotal / pMax * 100));
+    updateHealth('c-hp-bar', 100 - (cTotal / cMax * 100));
+    
+    const pTotalText = document.getElementById('p-hp-total-text');
+    const cTotalText = document.getElementById('c-hp-total-text');
+    if (pTotalText) pTotalText.innerText = `${Math.round(pTotal)}/${pMax} HP`;
+    if (cTotalText) cTotalText.innerText = `${Math.round(cTotal)}/${cMax} HP`;
 }
 
 async function saveMatchResult(win, pEl, pCol) {
@@ -1021,19 +1248,42 @@ function isIdentical(r1, r2) {
     return r1.element === r2.element && r1.color === r2.color;
 }
 
+const ELEMENT_BASE_STRENGTH = {
+    fire: 100,
+    earth: 95,
+    water: 90,
+    air: 85
+};
+
+const COLOR_COUNTERS = {
+    red: 'blue',
+    blue: 'green',
+    green: 'yellow',
+    yellow: 'red'
+};
+
 function calculateAdvancedDamage(atk, multiplier, level, arena, element, color, targetStatus) {
-    const safeAtk = atk || 100;
+    // Evolução 3V3: Uso de Força Base conforme elemento
+    const baseStrength = ELEMENT_BASE_STRENGTH[element] || 100;
+    
+    // Buff de Arena: 1.25x (+25%)
     const arenaBonus = arena.bonusElement === element ? 1.25 : 1;
-    const colorBonus = arena.color && arena.color === color ? 1.30 : 1;
     
-    let dmg = SkillService.calculateDamage(safeAtk, multiplier, level);
-    dmg = dmg * arenaBonus * colorBonus;
+    // Buff de Cor (Counter): 1.30x (+30%)
+    // Lógica: Se a cor do atacante vence a cor do defensor no ciclo
+    const colorBonus = COLOR_COUNTERS[color] === targetStatus.color ? 1.30 : 1;
     
-    // Variance (Jitter) ±5% - Reduzido para maior determinismo
-    const jitter = 0.95 + (Math.random() * 0.1);
+    // Cálculo do Score Baseado em Engenharia de Game
+    let score = baseStrength * arenaBonus * colorBonus;
+    
+    // Para o motor de dano, multiplicamos pelo multiplicador da habilidade e nível
+    let dmg = SkillService.calculateDamage(score, multiplier, level);
+    
+    // Variance (Jitter) ±5% - Reduzido para maior determinismo como solicitado
+    const jitter = 0.98 + (Math.random() * 0.04);
     dmg *= jitter;
     
-    // Critical / Weak
+    // Critical / Weak (Mantendo a emoção da batalha)
     let type = 'normal';
     const rand = Math.random();
     if (rand < 0.10) {
@@ -1116,13 +1366,9 @@ export function resetGame() {
     }
     document.getElementById('bottom-nav').classList.remove('hidden');
     
-    // Reset Battle Stage
-    const pAv = document.getElementById('player-avatar');
-    if (pAv) pAv.className = "w-32 h-32 md:w-48 md:h-48 filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]";
-    
-    const cAv = document.getElementById('cpu-avatar');
-    if (cAv) cAv.className = "w-32 h-32 md:w-48 md:h-48 filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] transform scale-x-[-1]";
-    
+    // Reset Battle Stage (Unificado para 1v1 e 3v3)
+    resetAllAvatarStates();
+
     const pHp = document.getElementById('p-hp-bar');
     if (pHp) pHp.style.width = '100%';
     
@@ -1194,43 +1440,64 @@ function showDetailedResult(win, report) {
     const card = document.getElementById('result-card');
 
     const titleEl = document.getElementById('result-title');
-    titleEl.innerText = win ? i18n.t('res-victory') : (win === null ? i18n.t('res-draw') : i18n.t('res-defeat'));
-    titleEl.className = `text-4xl font-black mb-2 uppercase italic tracking-tighter ${win ? 'text-green-400' : (win === null ? 'text-yellow-400' : 'text-red-500')}`;
-    document.getElementById('result-icon').innerText = win ? "🏆" : (win === null ? "⚠️" : "☠️");
-    document.getElementById('res-arena-name').innerText = report.arena;
+    if (titleEl) {
+        titleEl.innerText = win ? i18n.t('res-victory') : (win === null ? i18n.t('res-draw') : i18n.t('res-defeat'));
+        titleEl.className = `text-4xl font-black mb-2 uppercase italic tracking-tighter ${win ? 'text-green-400' : (win === null ? 'text-yellow-400' : 'text-red-500')}`;
+    }
+
+    const iconEl = document.getElementById('result-icon');
+    if (iconEl) iconEl.innerText = win ? "🏆" : (win === null ? "⚠️" : "☠️");
+
+    const arenaNameEl = document.getElementById('res-arena-name');
+    if (arenaNameEl) arenaNameEl.innerText = report.arena;
 
     const finDiv = document.getElementById('financial-result');
     const finDet = document.getElementById('financial-detail');
-    if (win) {
-        finDiv.innerText = `+${Math.floor(state.currentBet * 1.8)} RC`;
-        finDiv.className = "text-3xl font-mono font-bold text-green-400 mt-1";
-        finDet.innerText = `${i18n.t('res-bet')}: ${state.currentBet} | ${i18n.t('res-prize')}: ${Math.floor(state.currentBet * 1.8)} (${i18n.t('res-profit')} +${Math.floor(state.currentBet * 0.8)})`;
-    } else if (win === false) {
-        finDiv.innerText = `-${state.currentBet} RC`;
-        finDiv.className = "text-3xl font-mono font-bold text-red-400 mt-1";
-        finDet.innerText = i18n.t('res-lost');
-    } else {
-        finDiv.innerText = `+${state.currentBet} RC`;
-        finDiv.className = "text-3xl font-mono font-bold text-yellow-400 mt-1";
-        finDet.innerText = i18n.t('res-refunded');
+    if (finDiv) {
+        if (win) {
+            finDiv.innerText = `+${Math.floor(state.currentBet * 1.8)} RC`;
+            finDiv.className = "text-3xl font-mono font-bold text-green-400 mt-1";
+            if (finDet) finDet.innerText = `${i18n.t('res-bet')}: ${state.currentBet} | ${i18n.t('res-prize')}: ${Math.floor(state.currentBet * 1.8)} (${i18n.t('res-profit')} +${Math.floor(state.currentBet * 0.8)})`;
+        } else if (win === false) {
+            finDiv.innerText = `-${state.currentBet} RC`;
+            finDiv.className = "text-3xl font-mono font-bold text-red-400 mt-1";
+            if (finDet) finDet.innerText = i18n.t('res-lost');
+        } else {
+            finDiv.innerText = `+${state.currentBet} RC`;
+            finDiv.className = "text-3xl font-mono font-bold text-yellow-400 mt-1";
+            if (finDet) finDet.innerText = i18n.t('res-refunded');
+        }
     }
 
-    document.getElementById('res-p-base').innerText = report.p.base;
-    document.getElementById('res-p-final').innerText = report.p.final;
+    const pBase = document.getElementById('res-p-base');
+    if (pBase) pBase.innerText = report.p.base;
+    const pFinal = document.getElementById('res-p-final');
+    if (pFinal) pFinal.innerText = report.p.final;
+    
     const dash = '<i class="fas fa-minus-circle text-slate-600"></i>';
-    document.getElementById('res-p-bonus').innerHTML = `<span>Bonus:</span> ${report.p.arena ? '<span class="text-green-400 font-bold">+25%</span>' : dash}`;
-    document.getElementById('res-p-paint').innerHTML = `<span>Pintura:</span> ${report.p.color ? '<span class="text-green-400 font-bold">+30%</span>' : dash}`;
+    const pBonus = document.getElementById('res-p-bonus');
+    if (pBonus) pBonus.innerHTML = `<span>Bonus:</span> ${report.p.arena ? '<span class="text-green-400 font-bold">+25%</span>' : dash}`;
+    const pPaint = document.getElementById('res-p-paint');
+    if (pPaint) pPaint.innerHTML = `<span>Pintura:</span> ${report.p.color ? '<span class="text-green-400 font-bold">+30%</span>' : dash}`;
     
     renderAvatar('res-p-icon', state.player.element, state.player.color);
 
-    document.getElementById('res-c-base').innerText = report.c.base;
-    document.getElementById('res-c-final').innerText = report.c.final;
-    document.getElementById('res-c-bonus').innerHTML = `<span>Bonus:</span> ${report.c.arena ? '<span class="text-red-400 font-bold">+25%</span>' : dash}`;
-    document.getElementById('res-c-paint').innerHTML = `<span>Pintura:</span> ${report.c.color ? '<span class="text-red-400 font-bold">+30%</span>' : dash}`;
+    const cBase = document.getElementById('res-c-base');
+    if (cBase) cBase.innerText = report.c.base;
+    const cFinal = document.getElementById('res-c-final');
+    if (cFinal) cFinal.innerText = report.c.final;
+    const cBonus = document.getElementById('res-c-bonus');
+    if (cBonus) cBonus.innerHTML = `<span>Bonus:</span> ${report.c.arena ? '<span class="text-red-400 font-bold">+25%</span>' : dash}`;
+    const cPaint = document.getElementById('res-c-paint');
+    if (cPaint) cPaint.innerHTML = `<span>Pintura:</span> ${report.c.color ? '<span class="text-red-400 font-bold">+30%</span>' : dash}`;
     
     renderAvatar('res-c-icon', state.cpu.element, state.cpu.color);
 
-    overlay.classList.remove('hidden');
-    setTimeout(() => { card.classList.remove('scale-90', 'opacity-0'); card.classList.add('scale-100', 'opacity-100'); }, 50);
+    if (overlay) {
+        overlay.classList.remove('hidden');
+        if (card) {
+            setTimeout(() => { card.classList.remove('scale-90', 'opacity-0'); card.classList.add('scale-100', 'opacity-100'); }, 50);
+        }
+    }
     AudioEngine.playClick();
 }

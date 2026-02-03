@@ -233,6 +233,7 @@ class State {
             },
             baseStats: ELEMENTS[element].base,
             hp: 100 + (level * 10),
+            hp_current: 100 + (level * 10),
             hp_max: 100 + (level * 10),
             energy: 100,
             energy_max: 100,
