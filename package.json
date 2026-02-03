@@ -1,0 +1,18 @@
+{
+  "name": "farmcoin-tycoon-rinha",
+  "version": "1.0.0",
+  "description": "Rinha Evolution - MVP Mobile de Combate de Galos",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "game",
+    "static",
+    "supabase",
+    "rinha"
+  ],
+  "author": "",
+  "license": "ISC"
+}
