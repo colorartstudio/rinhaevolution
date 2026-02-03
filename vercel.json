@@ -1,20 +1,9 @@
 {
   "version": 2,
-  "cleanUrls": true,
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/index.html"
-    }
+  "builds": [
+    { "src": "server.js", "use": "@vercel/node" }
   ],
   "routes": [
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/.*",
-      "status": 404,
-      "dest": "/404.html"
-    }
+    { "src": "/(.*)", "dest": "server.js" }
   ]
 }
