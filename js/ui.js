@@ -352,6 +352,62 @@ export async function updateShopUI() {
     }
 }
 
+export function showRoosterSelectorForItem(itemId) {
+    const activeRoosters = TeamService.getTeamRoosters();
+    if (activeRoosters.length === 0) return;
+    
+    // Se só tiver um galo, usa direto
+    if (activeRoosters.length === 1) {
+        import('./game.js').then(m => m.useItem(itemId, 0));
+        return;
+    }
+
+    const item = state.gameData.inventory.items.find(i => i.id === itemId);
+    const modalId = 'item-target-modal';
+    let modal = document.getElementById(modalId);
+    
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = "fixed inset-0 z-[200] modal-base modal-hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4";
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 p-6 shadow-2xl">
+            <h2 class="text-lg font-display text-white uppercase text-center mb-4">${i18n.t('inv-use-btn')} ${i18n.t(item.nameKey)}</h2>
+            <p class="text-[10px] text-slate-500 uppercase text-center mb-6 tracking-widest">Escolha o galo alvo</p>
+            <div class="space-y-3" id="rooster-selector-list"></div>
+            <button onclick="window.app.toggleModal('${modalId}')" class="w-full mt-6 py-3 text-slate-500 font-bold uppercase text-xs hover:text-white transition-all">Cancelar</button>
+        </div>
+    `;
+
+    const list = modal.querySelector('#rooster-selector-list');
+    activeRoosters.forEach((r, idx) => {
+        const btn = document.createElement('button');
+        const hpPercent = Math.round(((r.hp_current || r.hp || r.hp_max || 100) / (r.hp_max || 100)) * 100);
+        btn.className = "w-full flex items-center gap-4 p-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl transition-all group";
+        btn.onclick = () => {
+            toggleModal(modalId);
+            import('./game.js').then(m => m.useItem(itemId, idx));
+        };
+        btn.innerHTML = `
+            <div class="w-12 h-12 bg-slate-900 rounded-full flex-shrink-0" id="selector-avatar-${idx}"></div>
+            <div class="flex-1 text-left">
+                <div class="text-[10px] font-black text-white uppercase">${i18n.t('el-'+r.element)} LVL ${r.level}</div>
+                <div class="w-full h-1.5 bg-slate-900 rounded-full mt-1 overflow-hidden">
+                    <div class="h-full bg-blue-500" style="width: ${hpPercent}%"></div>
+                </div>
+            </div>
+            <div class="text-[10px] font-mono font-bold text-slate-500 group-hover:text-yellow-500">${hpPercent}%</div>
+        `;
+        list.appendChild(btn);
+        renderAvatar(`selector-avatar-${idx}`, r.element, r.color, r.dna?.skin || 'none');
+    });
+
+    toggleModal(modalId);
+}
+
 export function updateInventoryUI() {
     // 1. Renderizar Suprimentos (Itens Consumíveis)
     const itemsList = document.getElementById('inventory-items-list');
@@ -370,7 +426,7 @@ export function updateInventoryUI() {
                     <div class="text-2xl mb-1">${icon}</div>
                     <div class="text-[9px] font-black text-white uppercase text-center leading-tight h-6 flex items-center">${i18n.t(item.nameKey) || item.name}</div>
                     <div class="text-[10px] font-mono font-bold text-slate-400">${item.count}x</div>
-                    <button onclick="window.app.useItem('${item.id}')" class="w-full py-2 bg-blue-600/20 text-blue-400 text-[9px] font-black uppercase rounded-lg border border-blue-500/30 active:scale-95 transition-all hover:bg-blue-600 hover:text-white">${i18n.t('inv-use-btn') || 'USAR'}</button>
+                    <button onclick="window.app.showRoosterSelectorForItem('${item.id}')" class="w-full py-2 bg-blue-600/20 text-blue-400 text-[9px] font-black uppercase rounded-lg border border-blue-500/30 active:scale-95 transition-all hover:bg-blue-600 hover:text-white">${i18n.t('inv-use-btn') || 'USAR'}</button>
                 `;
                 itemsList.appendChild(div);
             });

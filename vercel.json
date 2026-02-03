@@ -1,12 +1,6 @@
 {
   "version": 2,
   "cleanUrls": true,
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/rinha.html"
-    }
-  ],
   "routes": [
     {
       "handle": "filesystem"

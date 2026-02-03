@@ -71,7 +71,7 @@ function resetAllAvatarStates() {
     }
 }
 
-export async function useItem(itemId) {
+export async function useItem(itemId, roosterIdx = null) {
     const item = state.gameData.inventory.items.find(i => i.id === itemId);
     if (!item || item.count <= 0) return;
 
@@ -82,15 +82,26 @@ export async function useItem(itemId) {
         return;
     }
 
-    let targetIdx = 0;
-    if (activeRoosters.length > 1) {
-        const names = activeRoosters.map((r, i) => `${i}: ${i18n.t('el-'+r.element)} (HP: ${Math.round(r.hp_current || r.hp || 100)}/${r.hp_max || 100})`).join('\n');
-        const choice = prompt(`Escolha o galo para usar ${i18n.t(item.nameKey)}:\n${names}`, "0");
-        targetIdx = parseInt(choice);
-        if (isNaN(targetIdx) || targetIdx < 0 || targetIdx >= activeRoosters.length) return;
+    let targetIdx = roosterIdx;
+    
+    // Se não passou o índice, tenta descobrir qual galo precisa de HP (fora de rinha)
+    if (targetIdx === null) {
+        if (activeRoosters.length === 1) {
+            targetIdx = 0;
+        } else {
+            // Engenharia: Se o usuário clica direto na mochila, 
+            // mostramos um pequeno menu seletor ao invés de prompt()
+            if (window.app.showRoosterSelectorForItem) {
+                window.app.showRoosterSelectorForItem(itemId);
+                return;
+            }
+            // Fallback se o seletor não estiver pronto
+            targetIdx = 0;
+        }
     }
 
     const target = activeRoosters[targetIdx];
+    if (!target) return;
 
     if (item.type === 'heal') {
         const currentHP = target.hp_current || target.hp || target.hp_max || 100;
@@ -118,16 +129,17 @@ export async function useItem(itemId) {
         }
         
         AudioEngine.playClick();
-        alert(`${i18n.t('inv-used-msg') || 'Usou'} ${i18n.t(item.nameKey) || item.name} em ${i18n.t('el-'+target.element)}!`);
+        
+        // Atualiza a UI se estiver na mochila
+        if (window.app.updateInventoryUI) window.app.updateInventoryUI();
         
     } else if (item.type === 'energy') {
         item.count--;
         AudioEngine.playClick();
-        alert(`${i18n.t('inv-used-msg') || 'Usou'} ${i18n.t(item.nameKey) || item.name}!`);
+        if (window.app.updateInventoryUI) window.app.updateInventoryUI();
     }
 
     state.save();
-    if (window.app.updateInventoryUI) window.app.updateInventoryUI();
 }
 
 export function handleSkillClick(skillId) {
@@ -334,7 +346,7 @@ function startGame() {
     const cGrid = document.getElementById('cpu-avatars-grid');
 
     if (state.gameMode === '3v3') {
-        // No modo 3v3, usamos a estrutura fixa do rinha.html que já contém as barras de HP/Energia
+        // No modo 3v3, usamos a estrutura fixa do index.html que já contém as barras de HP/Energia
         // Removemos qualquer avatar dinâmico de 1v1 que possa ter sido criado
         const oldP = document.getElementById('player-avatar');
         if (oldP) oldP.remove();
@@ -605,6 +617,8 @@ async function battleSequence() {
                     pHP = Math.min(pRooster.hp_max, pHP + heal);
                     updateHealth('p-hp-bar', -(heal / pRooster.hp_max) * 100);
                     if (pAv) showFloatingText(pAv, `+${heal}`, 'left', false);
+                    // Atualiza estado global
+                    pRooster.hp_current = pHP;
                 }
             } else if (action.type === 'item') {
                 const item = state.gameData.inventory.items.find(i => i.id === action.id);
@@ -614,12 +628,14 @@ async function battleSequence() {
                     pHP = Math.min(pRooster.hp_max, pHP + heal);
                     updateHealth('p-hp-bar', -(heal / pRooster.hp_max) * 100);
                     if (pAv) showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
+                    pRooster.hp_current = pHP;
                 } else if (item.type === 'energy') {
-                    pRooster.energy = Math.min(pRooster.energy_max, pRooster.energy + item.value);
-                    updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max);
+                    pRooster.energy = Math.min(pRooster.energy_max || 100, pRooster.energy + item.value);
+                    updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
                     if (pAv) showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
                 }
                 AudioEngine.playClick();
+                state.save(); // Salva consumo de item e HP atual
                 await sleep(500);
             }
 
@@ -938,6 +954,7 @@ async function battleSequence3v3() {
                     pHP[pIdx] = Math.min(pGal.hp_max, pHP[pIdx] + heal);
                     updateSlotHP('p', pIdx, (pHP[pIdx] / pGal.hp_max) * 100);
                     if (pAv) showFloatingText(pAv, `+${heal}`, 'left', false);
+                    pGal.hp_current = pHP[pIdx];
                 } else {
                     updateSlotHP('c', playerTargetIdx, (cHP[playerTargetIdx] / cMaxHP[playerTargetIdx]) * 100);
                     
@@ -956,15 +973,17 @@ async function battleSequence3v3() {
                 if (item) {
                     item.count--;
                     if (item.type === 'heal') {
-                        const heal = 40;
+                        const heal = Math.round(pGal.hp_max * (item.value / 100));
                         pHP[pIdx] = Math.min(pGal.hp_max, pHP[pIdx] + heal);
                         updateSlotHP('p', pIdx, (pHP[pIdx] / pGal.hp_max) * 100);
                         if (pAv) showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
+                        pGal.hp_current = pHP[pIdx];
                     } else if (item.type === 'energy') {
-                        pEnergy[pIdx] = Math.min(100, pEnergy[pIdx] + 30);
+                        pEnergy[pIdx] = Math.min(100, pEnergy[pIdx] + item.value);
                         updateSlotEnergy('p', pIdx, pEnergy[pIdx]);
-                        if (pAv) showFloatingText(pAv, `+30 ⚡`, 'left', false);
+                        if (pAv) showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
                     }
+                    state.save();
                 }
             }
 

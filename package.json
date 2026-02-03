@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "dev": "node server.js",
-    "local": "node server.js"
+    "local": "node server.js",
+    "build": "echo 'No build step required'"
   },
   "keywords": [
     "game",
