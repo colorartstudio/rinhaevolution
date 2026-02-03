@@ -100,7 +100,9 @@ export function updateRankUI() {
 
 export function showFloatingText(el, text, side, isCrit) {
     const div = document.createElement('div');
-    div.className = isCrit ? 'damage-number damage-crit' : 'damage-number';
+    div.className = isCrit 
+        ? 'damage-number damage-crit text-5xl sm:text-6xl' 
+        : 'damage-number text-4xl sm:text-5xl';
     div.innerText = text + (isCrit ? '!' : '');
     if (side === 'center') {
         div.style.left = '50%'; div.style.top = '50%'; div.style.transform = 'translate(-50%, -50%)';
@@ -165,21 +167,21 @@ export async function updateLeaderboardUI() {
             const bgClass = index % 2 === 0 ? 'bg-slate-900/50' : 'bg-slate-800/30';
             
             const html = `
-            <div class="p-4 grid grid-cols-12 items-center ${bgClass} transition-colors hover:bg-slate-800/60">
+            <div class="p-3 sm:p-4 grid grid-cols-12 items-center ${bgClass} transition-colors hover:bg-slate-800/60 gap-2">
                 <div class="col-span-2 text-center font-display ${medalColor} ${isTop3 ? 'text-xl' : 'text-sm'}">
                     ${isTop3 ? `<i class="fas fa-crown"></i>` : index + 1}
                 </div>
-                <div class="col-span-6 flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white border border-slate-600 uppercase">
+                <div class="col-span-6 flex items-center gap-2 min-w-0">
+                    <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white border border-slate-600 uppercase flex-shrink-0">
                         ${player.username.substring(0, 2)}
                     </div>
-                    <div class="flex flex-col">
-                        <span class="text-sm font-bold text-white">${player.username}</span>
+                    <div class="flex flex-col min-w-0">
+                        <span class="text-sm font-bold text-white truncate">${player.username}</span>
                         <span class="text-[8px] text-slate-500 uppercase tracking-tighter">${player.wins} ${i18n.t('lead-wins-suffix')}</span>
                     </div>
                 </div>
                 <div class="col-span-4 text-right">
-                    <span class="text-sm font-mono font-bold text-yellow-400">${player.balance.toLocaleString()} RC</span>
+                    <span class="text-xs sm:text-sm font-mono font-bold text-yellow-400">${player.balance.toLocaleString()} RC</span>
                 </div>
             </div>`;
             listEl.insertAdjacentHTML('beforeend', html);
@@ -209,7 +211,7 @@ export function updatePreview() {
                 div.className = 'flex flex-col items-center gap-1 animate-fade-in';
                 div.style.animationDelay = `${idx * 150}ms`;
                 div.innerHTML = `
-                    <div id="team-preview-item-${gal.id}" class="w-20 h-20 md:w-32 md:h-32 drop-shadow-xl anim-float-slow"></div>
+                    <div id="team-preview-item-${gal.id}" class="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 drop-shadow-xl anim-float-slow"></div>
                     <div class="text-[8px] font-black text-white uppercase bg-black/40 px-2 py-0.5 rounded-full border border-white/10">${i18n.t(`el-${gal.element}`)} ${i18n.t('gen-lvl-prefix')} ${gal.level}</div>
                 `;
                 teamContainer.appendChild(div);
@@ -219,7 +221,7 @@ export function updatePreview() {
             // Fallback se o time estiver incompleto
             for (let i = team.length; i < 3; i++) {
                 const div = document.createElement('div');
-                div.className = 'w-20 h-20 md:w-32 md:h-32 flex items-center justify-center border-2 border-dashed border-slate-800 rounded-full text-slate-800';
+                div.className = 'w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 flex items-center justify-center border-2 border-dashed border-slate-800 rounded-full text-slate-800';
                 div.innerHTML = '<i class="fas fa-plus text-xl"></i>';
                 teamContainer.appendChild(div);
             }
@@ -308,7 +310,7 @@ export async function updateShopUI() {
             const div = document.createElement('div');
             div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-yellow-500/50 transition-all';
             div.innerHTML = `
-                <div class="w-16 h-16 xs:w-20 xs:h-20" id="shop-item-${item.id}"></div>
+                <div class="w-16 h-16 sm:w-20 sm:h-20" id="shop-item-${item.id}"></div>
                 <div class="text-[10px] font-black text-white uppercase">${i18n.t(`el-${item.element}`)}</div>
                 <div class="text-base font-mono font-bold text-yellow-400">${item.price} RC</div>
                 <button onclick="window.app.buyRooster('${item.element}', '${item.color}', ${item.price})" class="w-full py-2 bg-yellow-500 text-black text-[9px] font-black uppercase rounded-lg active:scale-95 transition-all">${i18n.t('shop-buy-btn')}</button>
@@ -454,7 +456,7 @@ export function updateInventoryUI() {
         div.className = `bg-slate-900/50 backdrop-blur-md border ${inTeam ? 'border-yellow-500/50 shadow-yellow-500/10' : 'border-slate-800'} rounded-2xl p-3 flex items-center gap-3 shadow-xl transition-all`;
         div.innerHTML = `
             <div class="relative flex-shrink-0">
-                <div class="w-14 h-14 xs:w-16 xs:h-16" id="inv-item-${gal.id}"></div>
+                <div class="w-14 h-14 sm:w-16 sm:h-16" id="inv-item-${gal.id}"></div>
                 ${hasSkin ? `<div class="absolute -top-1 -left-1 bg-yellow-500 text-black text-[6px] font-black px-1.5 py-0.5 rounded-full shadow-lg border border-black animate-pulse z-10">${i18n.t('skin-' + gal.dna.skin)}</div>` : ''}
             </div>
             <div class="flex-1 min-w-0">
