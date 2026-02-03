@@ -864,6 +864,7 @@
             updateRankUI, 
             updateLeaderboardUI,
             updatePreview,
+            updateInventoryUI,
             toggleModal 
         } from './js/ui.js';
         import { 
@@ -1411,43 +1412,7 @@
             });
         }
 
-        function updateInventoryUI() {
-            const invList = document.getElementById('inventory-list');
-            invList.innerHTML = '';
-            if (state.gameData.inventory.roosters.length === 0) {
-                invList.innerHTML = `<div class="col-span-full text-center py-10 text-slate-600 font-black uppercase tracking-widest text-xs">${i18n.t('inv-empty')}</div>`;
-                return;
-            }
-            state.gameData.inventory.roosters.forEach(gal => {
-                const inTeam = state.gameData.teams.active.includes(gal.id);
-                const hasSkin = gal.dna?.skin && gal.dna.skin !== 'none';
-                const div = document.createElement('div');
-                div.className = `bg-slate-900/50 backdrop-blur-md border ${inTeam ? 'border-yellow-500/50 shadow-yellow-500/10' : 'border-slate-800'} rounded-2xl p-3 flex items-center gap-3 shadow-xl transition-all`;
-                div.innerHTML = `
-                    <div class="relative flex-shrink-0">
-                        <div class="w-14 h-14 xs:w-16 xs:h-16" id="inv-item-${gal.id}"></div>
-                        ${hasSkin ? `<div class="absolute -top-1 -left-1 bg-yellow-500 text-black text-[6px] font-black px-1.5 py-0.5 rounded-full shadow-lg border border-black animate-pulse z-10">${i18n.t('skin-' + gal.dna.skin)}</div>` : ''}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <div class="text-[10px] font-black text-white uppercase truncate">${i18n.t(`el-${gal.element}`)}</div>
-                            ${gal.dna?.rarity === 'legendary' ? '<span class="text-[6px] bg-orange-500/20 text-orange-400 px-1 rounded font-black">LEGENDARY</span>' : ''}
-                        </div>
-                        <div class="text-[8px] text-slate-500 font-bold uppercase tracking-tighter">Nível ${gal.level} • XP ${gal.xp}</div>
-                        <div class="flex gap-2 mt-2">
-                            <button onclick="window.app.toggleTeamMember('${gal.id}')" class="px-2.5 py-1 ${inTeam ? 'bg-red-900/40 text-red-400 border-red-500/30' : 'bg-yellow-500 text-black'} text-[8px] font-black uppercase rounded-lg transition-all border border-transparent active:scale-95">
-                                ${inTeam ? i18n.t('inv-remove-btn') : i18n.t('inv-equip-btn')}
-                            </button>
-                            <button onclick="window.app.sellRooster('${gal.id}')" class="px-2.5 py-1 bg-slate-800 text-slate-400 text-[8px] font-black uppercase rounded-lg border border-slate-700 active:scale-95">
-                                ${i18n.t('inv-sell-btn')}
-                            </button>
-                        </div>
-                    </div>
-                `;
-                invList.appendChild(div);
-                renderAvatar(`inv-item-${gal.id}`, gal.element, gal.color, gal.dna?.skin || 'none');
-            });
-        }
+        // updateInventoryUI imported from js/ui.js
 
         function updateReferralUI() {
             const stats = ReferralService.getStats();
