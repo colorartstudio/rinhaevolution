@@ -112,7 +112,8 @@ class State {
                     balance: this.gameData.balance,
                     wins: this.gameData.wins,
                     losses: this.gameData.losses,
-                    settings: this.gameData.settings
+                    settings: this.gameData.settings,
+                    inventory_items: this.gameData.inventory.items // <-- ADICIONADO
                 }).eq('id', this.gameData.user.id);
             } catch (err) {
                 console.warn("Cloud sync failed, will retry later:", err);
@@ -149,6 +150,7 @@ class State {
                         this.gameData.wins = profile.wins;
                         this.gameData.losses = profile.losses;
                         this.gameData.settings = profile.settings || this.gameData.settings;
+                        this.gameData.inventory.items = profile.inventory_items || []; // <-- ADICIONADO
                         if (profile.referral_code) this.gameData.referral.code = profile.referral_code;
                         console.log("Profile sincronizado.");
                     }
