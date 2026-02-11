@@ -98,7 +98,7 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGh
                   fill="url(#gradBody-${containerId})" stroke="#0f172a" stroke-width="2.5"/>
             
             <!-- Detalhe da Asa -->
-            <path d="M125,135 C125,135 175,115 185,165 C155,185 130,170 125,135" 
+            <path class="rooster-wing" d="M125,135 C125,135 175,115 185,165 C155,185 130,170 125,135" 
                   fill="${darkColor}" opacity="0.8" stroke="#0f172a" stroke-width="1.5"/>
             <path d="M140,145 C140,145 170,130 175,160 C155,175 140,165 140,145" 
                   fill="rgba(0,0,0,0.2)" stroke="none"/>
