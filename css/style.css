@@ -114,6 +114,8 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
 @keyframes attack-r { 0% { transform: translateX(0) scaleX(-1) scale(1); } 50% { transform: translateX(-60px) scaleX(-1) scale(1.2); } 100% { transform: translateX(0) scaleX(-1) scale(1); } }
 @keyframes lunge-l { 0% { transform: translateX(0) scale(1); } 40% { transform: translateX(120%) scale(1.1); } 60% { transform: translateX(120%) scale(1.1); } 100% { transform: translateX(0) scale(1); } }
 @keyframes lunge-r { 0% { transform: translateX(0) scaleX(-1) scale(1); } 40% { transform: translateX(-120%) scaleX(-1) scale(1.1); } 60% { transform: translateX(-120%) scaleX(-1) scale(1.1); } 100% { transform: translateX(0) scaleX(-1) scale(1); } }
+@keyframes lunge-up { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-120%) scale(1.1); } 60% { transform: translateY(-120%) scale(1.1); } 100% { transform: translateY(0) scale(1); } }
+@keyframes lunge-down { 0% { transform: translateY(0) scaleX(-1) scale(1); } 40% { transform: translateY(120%) scaleX(-1) scale(1.1); } 60% { transform: translateY(120%) scaleX(-1) scale(1.1); } 100% { transform: translateY(0) scaleX(-1) scale(1); } }
 @keyframes wing-flap { 0% { transform: rotate(0); } 50% { transform: rotate(-20deg) scale(1.2); } 100% { transform: rotate(0); } }
 
 @keyframes damage-shake { 0%, 100% { filter: brightness(1); transform: translate(0,0); } 20% { filter: sepia(1) hue-rotate(-50deg) saturate(5); transform: translate(-8px, 8px); } 40% { filter: sepia(1) hue-rotate(-50deg) saturate(5); transform: translate(8px, -8px); } }
@@ -142,6 +144,8 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
 .anim-atk-r { animation: attack-r 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .anim-lunge-l { animation: lunge-l 0.6s cubic-bezier(0.22, 1, 0.36, 1); z-index: 100 !important; }
 .anim-lunge-r { animation: lunge-r 0.6s cubic-bezier(0.22, 1, 0.36, 1); z-index: 100 !important; }
+.anim-lunge-up { animation: lunge-up 0.6s cubic-bezier(0.22, 1, 0.36, 1); z-index: 100 !important; }
+.anim-lunge-down { animation: lunge-down 0.6s cubic-bezier(0.22, 1, 0.36, 1); z-index: 100 !important; }
 .anim-wing-flap .rooster-wing { animation: wing-flap 0.3s ease-in-out infinite; transform-origin: center center; }
 
 .anim-hit { animation: damage-shake 0.3s; }

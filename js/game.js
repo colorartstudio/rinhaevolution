@@ -596,7 +596,7 @@ async function battleSequence() {
                 cStatus.shield = 1;
 
                 // Frenesi: Animações mais rápidas
-                if (pAv) pAv.classList.add('anim-lunge-l', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
+                if (pAv) pAv.classList.add('anim-lunge-up', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
                 if (cAv) cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
                 
                 // Feedback visual de Crítico/Fraco
@@ -640,7 +640,7 @@ async function battleSequence() {
             }
 
             await sleep(400); 
-            if (pAv) pAv.classList.remove('anim-lunge-l', 'anim-wing-flap'); 
+            if (pAv) pAv.classList.remove('anim-lunge-up', 'anim-wing-flap'); 
             if (cAv) cAv.classList.remove('anim-hit'); 
             await sleep(600);
         } else {
@@ -685,7 +685,7 @@ async function battleSequence() {
 
             pStatus.shield = 1;
 
-            if (cAv) cAv.classList.add('anim-lunge-r', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
+            if (cAv) cAv.classList.add('anim-lunge-down', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
             if (pAv) pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
             
             let floatMsgP = `-${dmgP}`;
@@ -702,7 +702,7 @@ async function battleSequence() {
             if (cSkill.effect === 'def') cStatus.def = cSkill.value;
 
             await sleep(400); 
-            if (cAv) cAv.classList.remove('anim-lunge-r', 'anim-wing-flap'); 
+            if (cAv) cAv.classList.remove('anim-lunge-down', 'anim-wing-flap'); 
             if (pAv) pAv.classList.remove('anim-hit'); 
             await sleep(600);
         } else {
@@ -946,7 +946,7 @@ async function battleSequence3v3() {
                 cHP[playerTargetIdx] = resResult.newHP;
                 pRoundDamageTakenByCPU[playerTargetIdx] += dmg;
 
-                if (pAv) pAv.classList.add('anim-lunge-l', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
+                if (pAv) pAv.classList.add('anim-lunge-up', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
                 if (cAv) cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
 
                 if (skill.effect === 'heal') {
@@ -989,7 +989,7 @@ async function battleSequence3v3() {
 
             updateTotalHP(pHP, cHP);
             await sleep(400); 
-            if (pAv) pAv.classList.remove('anim-lunge-l', 'anim-wing-flap'); 
+            if (pAv) pAv.classList.remove('anim-lunge-up', 'anim-wing-flap'); 
             // Limpeza de efeitos visuais por galo
             if (cAv) cAv.classList.remove('target-rooster');
         }
@@ -1046,7 +1046,7 @@ async function battleSequence3v3() {
             pHP[cpuTargetIdx] = resResultP.newHP;
             cRoundDamageTakenByPlayer[cpuTargetIdx] += dmgP;
 
-            if (cAv) cAv.classList.add('anim-lunge-r', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
+            if (cAv) cAv.classList.add('anim-lunge-down', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
             if (pAv) pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
 
             updateSlotHP('p', cpuTargetIdx, (pHP[cpuTargetIdx] / pMaxHP[cpuTargetIdx]) * 100);
@@ -1062,7 +1062,7 @@ async function battleSequence3v3() {
 
             updateTotalHP(pHP, cHP);
             await sleep(400); 
-            if (cAv) cAv.classList.remove('anim-lunge-r', 'anim-wing-flap'); 
+            if (cAv) cAv.classList.remove('anim-lunge-down', 'anim-wing-flap'); 
             if (pAv) pAv.classList.remove('target-rooster');
             await sleep(400); 
         }
