@@ -27,8 +27,14 @@
                     </div>
                     <div class="relative">
                         <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                        <input type="password" id="login-password" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-4 py-4 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Senha" data-i18n="login-password-placeholder">
+                        <input type="password" id="login-password" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-12 py-4 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Senha" data-i18n="login-password-placeholder">
+                        <button type="button" onclick="window.app.togglePassword('login-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                            <i class="fas fa-eye"></i>
+                        </button>
                     </div>
+                </div>
+                <div class="flex justify-end -mt-2 mb-4">
+                    <button type="button" onclick="window.app.handleForgotPassword()" class="text-[10px] text-slate-400 hover:text-slate-200 font-black uppercase tracking-widest" data-i18n="login-forgot-password">Esqueci minha senha</button>
                 </div>
                 
                 <button onclick="window.app.handleLogin()" class="w-full py-4 bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-black text-lg uppercase tracking-widest rounded-2xl shadow-lg border-b-4 border-orange-800 active:border-b-0 active:translate-y-1 transition-all mb-6" data-i18n="login-button">ENTRAR</button>
@@ -59,7 +65,10 @@
                     </div>
                     <div class="relative">
                         <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                        <input type="password" id="reg-password" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-4 py-4 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Crie uma senha forte" data-i18n="reg-password-placeholder">
+                        <input type="password" id="reg-password" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-12 py-4 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Crie uma senha forte" data-i18n="reg-password-placeholder">
+                        <button type="button" onclick="window.app.togglePassword('reg-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                            <i class="fas fa-eye"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -108,6 +117,20 @@
             <span class="text-[8px] font-black uppercase" data-i18n="nav-more">Mais</span>
         </button>
     </nav>
+
+    <div id="reset-modal" class="fixed inset-0 hidden items-center justify-center bg-black/60 z-50">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-sm">
+            <h2 class="text-xl font-black mb-4" data-i18n="reset-title">RECUPERAR SENHA</h2>
+            <div class="space-y-3 mb-4">
+                <input type="password" id="reset-new" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Nova senha" data-i18n="reset-new-password">
+                <input type="password" id="reset-confirm" class="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all font-bold placeholder:text-slate-600" placeholder="Confirmar senha" data-i18n="reset-confirm-password">
+            </div>
+            <div class="flex gap-2">
+                <button type="button" onclick="window.app.hideResetPasswordModal()" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold" data-i18n="reset-cancel">Cancelar</button>
+                <button type="button" onclick="window.app.performPasswordReset()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-black" data-i18n="reset-submit">Salvar nova senha</button>
+            </div>
+        </div>
+    </div>
 
     <!-- GAME STATE: SELECTION SCREEN -->
     <div id="screen-selection" class="hidden screen-container w-full max-w-5xl mx-auto transition-all duration-300">
@@ -928,6 +951,64 @@
             },
             showRegister: () => Auth.showRegister(),
             showLogin: () => Auth.showLogin(),
+            togglePassword: (inputId, btn) => {
+                const input = document.getElementById(inputId);
+                if (!input) return;
+                input.type = input.type === 'password' ? 'text' : 'password';
+                if (btn) {
+                    const icon = btn.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('fa-eye');
+                        icon.classList.toggle('fa-eye-slash');
+                    }
+                }
+            },
+            handleForgotPassword: async () => {
+                const emailInput = document.getElementById('login-email');
+                const email = emailInput?.value?.trim();
+                if (!email) {
+                    alert(i18n.t('reset-error-email'));
+                    return;
+                }
+                const ok = await Auth.startPasswordReset(email, window.location.origin);
+                if (ok) alert(i18n.t('reset-email-sent'));
+            },
+            showResetPasswordModal: () => {
+                const modal = document.getElementById('reset-modal');
+                if (modal) modal.classList.remove('hidden');
+                if (modal) modal.classList.add('flex');
+            },
+            hideResetPasswordModal: () => {
+                const modal = document.getElementById('reset-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+                const a = document.getElementById('reset-new');
+                const b = document.getElementById('reset-confirm');
+                if (a) a.value = '';
+                if (b) b.value = '';
+            },
+            performPasswordReset: async () => {
+                const a = document.getElementById('reset-new')?.value || '';
+                const b = document.getElementById('reset-confirm')?.value || '';
+                if (!a || !b) {
+                    alert(i18n.t('auth-fill-all'));
+                    return;
+                }
+                if (a !== b) {
+                    alert(i18n.t('reset-error-mismatch'));
+                    return;
+                }
+                const ok = await Auth.updatePassword(a);
+                if (ok) {
+                    alert(i18n.t('reset-success'));
+                    window.app.hideResetPasswordModal();
+                    Auth.showLogin();
+                } else {
+                    alert(i18n.t('reset-error-generic'));
+                }
+            },
             handleRegister: async () => {
                 const username = document.getElementById('reg-username').value;
                 const email = document.getElementById('reg-email').value;

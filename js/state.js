@@ -46,7 +46,8 @@ class State {
                 roosters: [], // { id, element, color, level, xp, dna, price }
                 items: [
                     { id: 'pot-hp', name: 'Poção de HP', nameKey: 'shop-item-hp-name', type: 'heal', value: 50, count: 2, price: 200 },
-                    { id: 'pot-mp', name: 'Vitamina de Energia', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, count: 2, price: 150 }
+                    { id: 'pot-mp', name: 'Vitamina de Energia', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, count: 2, price: 150 },
+                    { id: 'shield', name: 'Escudo', nameKey: 'shop-item-shield-name', type: 'defense', value: 1, count: 0, price: 200 }
                 ]
             },
             teams: {

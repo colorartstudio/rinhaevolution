@@ -460,7 +460,7 @@ export function updateInventoryUI() {
             items.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-blue-500/30 transition-all';
-                const icon = item.id === 'pot-hp' ? '🧪' : '⚡';
+                const icon = item.id === 'pot-hp' ? '🧪' : (item.id === 'pot-mp' ? '⚡' : '🛡️');
                 div.innerHTML = `
                     <div class="text-2xl mb-1">${icon}</div>
                     <div class="text-[9px] font-black text-white uppercase text-center leading-tight h-6 flex items-center">${i18n.t(item.nameKey) || item.name}</div>

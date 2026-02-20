@@ -62,6 +62,64 @@ Object.assign(window.app, {
     },
     showRegister: () => Auth.showRegister(),
     showLogin: () => Auth.showLogin(),
+    togglePassword: (inputId, btn) => {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        input.type = input.type === 'password' ? 'text' : 'password';
+        if (btn) {
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-eye');
+                icon.classList.toggle('fa-eye-slash');
+            }
+        }
+    },
+    handleForgotPassword: async () => {
+        const emailInput = document.getElementById('login-email');
+        const email = emailInput?.value?.trim();
+        if (!email) {
+            alert(i18n.t('reset-error-email') || 'Informe um e-mail válido.');
+            return;
+        }
+        const ok = await Auth.startPasswordReset(email, window.location.origin);
+        if (ok) alert(i18n.t('reset-email-sent') || 'E-mail de recuperação enviado.');
+    },
+    showResetPasswordModal: () => {
+        const modal = document.getElementById('reset-modal');
+        if (modal) modal.classList.remove('hidden');
+        if (modal) modal.classList.add('flex');
+    },
+    hideResetPasswordModal: () => {
+        const modal = document.getElementById('reset-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        const a = document.getElementById('reset-new');
+        const b = document.getElementById('reset-confirm');
+        if (a) a.value = '';
+        if (b) b.value = '';
+    },
+    performPasswordReset: async () => {
+        const a = document.getElementById('reset-new')?.value || '';
+        const b = document.getElementById('reset-confirm')?.value || '';
+        if (!a || !b) {
+            alert(i18n.t('auth-fill-all'));
+            return;
+        }
+        if (a !== b) {
+            alert(i18n.t('reset-error-mismatch') || 'As senhas não coincidem.');
+            return;
+        }
+        const ok = await Auth.updatePassword(a);
+        if (ok) {
+            alert(i18n.t('reset-success') || 'Senha atualizada com sucesso.');
+            window.app.hideResetPasswordModal();
+            Auth.showLogin();
+        } else {
+            alert(i18n.t('reset-error-generic') || 'Falha ao atualizar a senha.');
+        }
+    },
     handleRegister: async () => {
         const username = document.getElementById('reg-username').value;
         const email = document.getElementById('reg-email').value;

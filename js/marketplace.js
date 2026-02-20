@@ -15,7 +15,8 @@ export class MarketplaceService {
     static getCombatItems() {
         return [
             { id: 'pot-hp', nameKey: 'shop-item-hp-name', type: 'heal', value: 50, price: 200, icon: '🧪' },
-            { id: 'pot-mp', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, price: 150, icon: '⚡' }
+            { id: 'pot-mp', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, price: 150, icon: '⚡' },
+            { id: 'shield', nameKey: 'shop-item-shield-name', type: 'defense', value: 1, price: 200, icon: '🛡️' }
         ];
     }
 

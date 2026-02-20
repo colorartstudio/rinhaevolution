@@ -7,6 +7,12 @@ export class Auth {
         console.log("Inicializando listener de autenticação...");
         supabase.auth.onAuthStateChange(async (event, session) => {
             console.log(`Evento de Autenticação: ${event}`);
+            if (event === 'PASSWORD_RECOVERY') {
+                if (window.app && typeof window.app.showResetPasswordModal === 'function') {
+                    window.app.showResetPasswordModal();
+                }
+                return;
+            }
             if (event === 'SIGNED_IN' && session) {
                 console.log("Usuário autenticado via OAuth/Session. Atualizando estado...");
                 state.gameData.user = { 
@@ -196,6 +202,28 @@ export class Auth {
         }
     }
 
+    static async startPasswordReset(email, redirectTo) {
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error("Erro resetPasswordForEmail:", err);
+            return false;
+        }
+    }
+
+    static async updatePassword(newPassword) {
+        try {
+            const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error("Erro updatePassword:", err);
+            return false;
+        }
+    }
+
     static async logout() {
         if (state.gameData.user) {
             await supabase.auth.signOut();
@@ -205,4 +233,3 @@ export class Auth {
         location.reload();
     }
 }
-
