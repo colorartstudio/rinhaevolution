@@ -1,5 +1,6 @@
 import { state, ELEMENTS, COLORS, ARENAS } from './state.js';
 import { AudioEngine } from './audio.js';
+import { VFX } from './vfx.js';
 import { renderAvatar, showDeadEyes } from './renderer.js';
 import { 
     updateBalanceUI, 
@@ -281,10 +282,19 @@ export async function checkBalanceAndStart() {
 
 export function startRouletteSequence() {
     AudioEngine.init();
-    // state.currentArena já foi definido pelo servidor na função checkBalanceAndStart
+    AudioEngine.startMusic();
+    
+    // Se NÃO for resultado de servidor (modo local/treino), reseta a arena para garantir sorteio limpo
+    if (!state.battleResult) {
+        state.currentArena = null;
+    }
+
+    // Se não tiver arena definida (resetada acima ou falha no server), sorteia uma
     if (!state.currentArena) {
         state.currentArena = ARENAS[Math.floor(Math.random() * ARENAS.length)];
     }
+    
+    console.log(`Batalha Iniciada. Arena: ${state.currentArena.id} (${state.currentArena.name}). Modo: ${state.battleResult ? 'Ranked' : 'Local'}`);
 
     state.inBattle = true;
 
@@ -452,7 +462,12 @@ async function showPlayerSkills(rooster) {
     const panel = document.getElementById('skill-panel');
     const container = document.getElementById('skill-buttons');
     const timerEl = document.getElementById('turn-timer');
-    const skills = SkillService.getSkillsForRooster(rooster.element, rooster.level);
+    
+    // Debug Log para rastrear problemas de skill
+    console.log(`[Skills] Galo: ${rooster.element} (Lvl ${rooster.level}) | Arena: ${state.currentArena?.id}`);
+    
+    // Passamos a arena atual para desbloquear skills especiais
+    const skills = SkillService.getSkillsForRooster(rooster.element, rooster.level, state.currentArena?.id);
     
     let timerInterval = null;
 
@@ -464,18 +479,39 @@ async function showPlayerSkills(rooster) {
     container.innerHTML = '';
     skills.forEach(skill => {
         const canAfford = (rooster.energy || 0) >= skill.cost;
+        const isOnCooldown = rooster.cooldowns && rooster.cooldowns[skill.id] > 0;
+        const cooldownTurns = isOnCooldown ? rooster.cooldowns[skill.id] : 0;
+        
         const btn = document.createElement('button');
-        if (canAfford) {
+        
+        if (canAfford && !isOnCooldown) {
             btn.onclick = () => {
                 cleanupTimer();
                 handleSkillClick(skill.id);
             };
-            btn.className = "flex flex-col items-center justify-center p-3 bg-gradient-to-b from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 border-2 border-slate-700 hover:border-yellow-500/50 rounded-2xl transition-all active:scale-95 group shadow-lg ring-1 ring-yellow-500/20";
+            // Destaque para Ultimate
+            const isUlt = skill.type === 'ultimate';
+            const borderClass = isUlt ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'border-slate-700 hover:border-yellow-500/50';
+            const bgClass = isUlt ? 'bg-gradient-to-b from-slate-800 to-slate-900' : 'bg-gradient-to-b from-slate-800 to-slate-900';
+            
+            btn.className = `flex flex-col items-center justify-center p-3 ${bgClass} hover:from-slate-700 hover:to-slate-800 border-2 ${borderClass} rounded-2xl transition-all active:scale-95 group shadow-lg ring-1 ring-yellow-500/20`;
         } else {
-            btn.className = "flex flex-col items-center justify-center p-3 bg-slate-900 border-2 border-slate-800 rounded-2xl opacity-40 cursor-not-allowed shadow-inner";
+            btn.className = "flex flex-col items-center justify-center p-3 bg-slate-900 border-2 border-slate-800 rounded-2xl opacity-40 cursor-not-allowed shadow-inner relative overflow-hidden";
+            btn.disabled = true;
         }
+        
+        let cooldownOverlay = '';
+        if (isOnCooldown) {
+            cooldownOverlay = `
+                <div class="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+                    <span class="text-xl font-black text-white drop-shadow-md">${cooldownTurns}</span>
+                </div>
+            `;
+        }
+
         btn.innerHTML = `
-            <span class="text-[11px] font-black text-white uppercase tracking-wider ${canAfford ? 'group-hover:text-yellow-400' : 'text-slate-600'}">${i18n.t(skill.nameKey)}</span>
+            ${cooldownOverlay}
+            <span class="text-[11px] font-black text-white uppercase tracking-wider ${canAfford && !isOnCooldown ? 'group-hover:text-yellow-400' : 'text-slate-600'}">${i18n.t(skill.nameKey)}</span>
             <div class="flex items-center gap-2 mt-1">
                 <div class="flex items-center bg-black/40 px-1.5 py-0.5 rounded-md border border-white/5">
                     <span class="text-[9px] text-yellow-500/80 font-bold">${skill.multiplier}x</span>
@@ -546,6 +582,11 @@ async function battleSequence() {
     // Initial UI Setup
     pRooster.energy = pRooster.energy_max || 100;
     cRooster.energy = cRooster.energy_max || 100;
+    
+    // Cooldown Management
+    pRooster.cooldowns = {}; // { skillId: turnsRemaining }
+    cRooster.cooldowns = {};
+
     updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
     updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max || 100);
 
@@ -570,6 +611,17 @@ async function battleSequence() {
         // Energy Regen per turn
         pRooster.energy = Math.min(pRooster.energy_max || 100, pRooster.energy + 20);
         cRooster.energy = Math.min(cRooster.energy_max || 100, cRooster.energy + 20);
+        
+        // Decrement Cooldowns
+        for (let skId in pRooster.cooldowns) {
+            if (pRooster.cooldowns[skId] > 0) pRooster.cooldowns[skId]--;
+            if (pRooster.cooldowns[skId] <= 0) delete pRooster.cooldowns[skId];
+        }
+        for (let skId in cRooster.cooldowns) {
+            if (cRooster.cooldowns[skId] > 0) cRooster.cooldowns[skId]--;
+            if (cRooster.cooldowns[skId] <= 0) delete cRooster.cooldowns[skId];
+        }
+
         updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
         updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max || 100);
 
@@ -580,6 +632,12 @@ async function battleSequence() {
             if (action.type === 'skill') {
                 const skill = SKILLS[pRooster.element].find(s => s.id === action.id);
                 pRooster.energy -= skill.cost;
+                
+                // Set Cooldown
+                if (skill.cooldown) {
+                    pRooster.cooldowns[skill.id] = skill.cooldown;
+                }
+
                 updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max);
 
                 const advDmg = calculateAdvancedDamage(pRooster.atk, skill.multiplier, pRooster.level, state.currentArena, pRooster.element, pRooster.color, cStatus);
@@ -595,8 +653,22 @@ async function battleSequence() {
 
                 cStatus.shield = 1;
 
-                // Frenesi: Animações mais rápidas
-                if (pAv) pAv.classList.add('anim-lunge-up', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
+                const isUltimateArenaSkill = skill.type === 'ultimate' && skill.arenaReq === state.currentArena?.id;
+                
+                if (pAv) {
+                    if (isUltimateArenaSkill) {
+                    const elClass = `arena-magic-${pRooster.element}`;
+                    pAv.classList.add('arena-magic-cast', elClass);
+                    AudioEngine.playElementUltimate(pRooster.element);
+                    VFX.play(pRooster.element, cAv); // Play VFX on target
+                } else {
+                    pAv.classList.add('anim-lunge-up', 'anim-wing-flap');
+                    AudioEngine.playAttack();
+                }
+                } else {
+                    AudioEngine.playAttack();
+                }
+                await sleep(300);
                 if (cAv) cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
                 
                 // Feedback visual de Crítico/Fraco
@@ -665,11 +737,20 @@ async function battleSequence() {
 
         // --- CPU TURN ---
         if (!cStatus.stun) {
-            const cSkills = SkillService.getSkillsForRooster(cRooster.element, cRooster.level);
-            const affordableSkills = cSkills.filter(s => s.cost <= cRooster.energy);
+            // CPU também pode usar skills de arena se aplicável
+            const cSkills = SkillService.getSkillsForRooster(cRooster.element, cRooster.level, state.currentArena?.id);
+            const affordableSkills = cSkills.filter(s => {
+                if (s.cost > cRooster.energy) return false;
+                if (cRooster.cooldowns && cRooster.cooldowns[s.id] > 0) return false;
+                return true;
+            });
             const cSkill = affordableSkills.length > 0 ? affordableSkills[Math.floor(Math.random() * affordableSkills.length)] : cSkills[0];
             
             cRooster.energy -= cSkill.cost;
+            if (cSkill.cooldown) {
+                cRooster.cooldowns[cSkill.id] = cSkill.cooldown;
+            }
+
             updateEnergy('c-en-bar', cRooster.energy, cRooster.energy_max);
 
             const advDmgP = calculateAdvancedDamage(cRooster.atk, cSkill.multiplier, cRooster.level, state.currentArena, cRooster.element, cRooster.color, pStatus);
@@ -685,7 +766,20 @@ async function battleSequence() {
 
             pStatus.shield = 1;
 
-            if (cAv) cAv.classList.add('anim-lunge-down', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
+            // CPU Attack Visuals
+            const isCpuUltimate = cSkill.type === 'ultimate' && cSkill.arenaReq === state.currentArena?.id;
+            
+            if (isCpuUltimate) {
+                const elClass = `arena-magic-${cRooster.element}`;
+                if(cAv) cAv.classList.add('arena-magic-cast', elClass);
+                AudioEngine.playElementUltimate(cRooster.element);
+                if(cAv && pAv) VFX.play(cRooster.element, pAv);
+            } else {
+                if (cAv) cAv.classList.add('anim-lunge-down', 'anim-wing-flap'); 
+                AudioEngine.playAttack(); 
+            }
+            
+            await sleep(300);
             if (pAv) pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
             
             let floatMsgP = `-${dmgP}`;
@@ -881,8 +975,6 @@ async function battleSequence3v3() {
         // --- TURNO DA EQUIPE JOGADOR ---
         let pRoundDamageTakenByCPU = cHP.map(() => 0); 
         
-        let autoAction = null; // Armazena a ação escolhida pelo primeiro galo para guiar os outros
-
         for (let pIdx = 0; pIdx < pTeam.length; pIdx++) {
             if (pHP[pIdx] <= 0) continue; 
             
@@ -912,24 +1004,7 @@ async function battleSequence3v3() {
             updateSlotEnergy('p', pIdx, pEnergy[pIdx]);
             pGal.energy = pEnergy[pIdx]; // Sincroniza energia para a interface de habilidades
 
-            // AUTOMAÇÃO: Se for o primeiro galo vivo, pede comando. Se não, segue automaticamente.
-            let action;
-            if (!autoAction) {
-                action = await showPlayerSkills(pGal);
-                autoAction = action; // Define o padrão para o restante da equipe nesta rodada
-            } else {
-                // Seleção Automática para os galos seguintes
-                if (autoAction.type === 'skill') {
-                    const skills = SkillService.getSkillsForRooster(pGal.element, pGal.level);
-                    const bestSkill = skills.find(s => s.cost <= pEnergy[pIdx]) || skills[0];
-                    action = { type: 'skill', id: bestSkill.id };
-                } else {
-                    // Se o primeiro usou item, os outros usam sua melhor skill (não gastamos 3 itens de uma vez)
-                    const skills = SkillService.getSkillsForRooster(pGal.element, pGal.level);
-                    action = { type: 'skill', id: skills[0].id };
-                }
-                await sleep(600); // Delay dramático para ver a sequência
-            }
+            let action = await showPlayerSkills(pGal);
 
             if (action.type === 'skill') {
                 const skill = SKILLS[pGal.element]?.find(s => s.id === action.id) || SKILLS.fire[0];
@@ -945,8 +1020,21 @@ async function battleSequence3v3() {
                 const dmg = resResult.actualDamage;
                 cHP[playerTargetIdx] = resResult.newHP;
                 pRoundDamageTakenByCPU[playerTargetIdx] += dmg;
-
-                if (pAv) pAv.classList.add('anim-lunge-up', 'anim-wing-flap'); AudioEngine.playAttack(); await sleep(300);
+                
+                const isUltimateArenaSkill = skill.type === 'ultimate' && skill.arenaReq === state.currentArena?.id;
+                if (pAv) {
+                    if (isUltimateArenaSkill) {
+                        const elClass = `arena-magic-${pGal.element}`;
+                        pAv.classList.add('arena-magic-cast', elClass);
+                        AudioEngine.playElementUltimate(pGal.element);
+                    } else {
+                        pAv.classList.add('anim-lunge-up', 'anim-wing-flap');
+                        AudioEngine.playAttack();
+                    }
+                } else {
+                    AudioEngine.playAttack();
+                }
+                await sleep(300);
                 if (cAv) cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
 
                 if (skill.effect === 'heal') {
@@ -1036,7 +1124,7 @@ async function battleSequence3v3() {
 
             cEnergy[cIdx] = Math.min(100, cEnergy[cIdx] + 15);
 
-            const cSkills = SkillService.getSkillsForRooster(cGal.element, 1);
+            const cSkills = SkillService.getSkillsForRooster(cGal.element, cGal.level, state.currentArena?.id);
             const cSkill = cSkills[Math.floor(Math.random() * cSkills.length)];
 
             const advDmgP = calculateAdvancedDamage(cGal.atk, cSkill.multiplier, 1, state.currentArena, cGal.element, cGal.color, pStatus);

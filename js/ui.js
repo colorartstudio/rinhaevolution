@@ -39,20 +39,57 @@ export function updateBalanceUI() {
 }
 
 export function updateSettingsUI() {
-    const btn = document.getElementById('btn-sound-toggle');
-    const knob = btn.firstElementChild;
-    if (state.gameData.settings.mute) {
-        btn.className = "w-12 h-6 bg-slate-600 rounded-full relative transition-colors duration-300";
-        knob.className = "w-5 h-5 bg-slate-400 rounded-full absolute top-0.5 left-0.5 transition-all duration-300 shadow-md";
-    } else {
-        btn.className = "w-12 h-6 bg-green-500 rounded-full relative transition-colors duration-300";
-        knob.className = "w-5 h-5 bg-white rounded-full absolute top-0.5 left-6 transition-all duration-300 shadow-md";
+    // Sound (SFX) Toggle
+    const btnSfx = document.getElementById('btn-sound-toggle');
+    if (btnSfx) {
+        const knobSfx = btnSfx.firstElementChild;
+        if (state.gameData.settings.muteSFX) {
+            btnSfx.className = "w-12 h-6 bg-slate-600 rounded-full relative transition-colors duration-300";
+            knobSfx.className = "w-5 h-5 bg-slate-400 rounded-full absolute top-0.5 left-0.5 transition-all duration-300 shadow-md";
+        } else {
+            btnSfx.className = "w-12 h-6 bg-green-500 rounded-full relative transition-colors duration-300";
+            knobSfx.className = "w-5 h-5 bg-white rounded-full absolute top-0.5 left-6 transition-all duration-300 shadow-md";
+        }
+    }
+
+    // Music Toggle
+    const btnMusic = document.getElementById('btn-music-toggle');
+    if (btnMusic) {
+        const knobMusic = btnMusic.firstElementChild;
+        if (state.gameData.settings.muteMusic) {
+            btnMusic.className = "w-12 h-6 bg-slate-600 rounded-full relative transition-colors duration-300";
+            knobMusic.className = "w-5 h-5 bg-slate-400 rounded-full absolute top-0.5 left-0.5 transition-all duration-300 shadow-md";
+        } else {
+            btnMusic.className = "w-12 h-6 bg-green-500 rounded-full relative transition-colors duration-300";
+            knobMusic.className = "w-5 h-5 bg-white rounded-full absolute top-0.5 left-6 transition-all duration-300 shadow-md";
+        }
     }
     
     // Update language select if exists
     const langSelect = document.getElementById('settings-lang-select');
     if (langSelect) langSelect.value = state.gameData.settings.lang;
 }
+
+export function showOfflineBanner() {
+    let banner = document.getElementById('offline-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'offline-banner';
+        banner.className = "fixed top-0 inset-x-0 z-[200] flex justify-center pointer-events-none";
+        const inner = document.createElement('div');
+        inner.className = "mt-2 px-4 py-2 bg-amber-500/90 text-black text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg flex items-center gap-2 pointer-events-auto";
+        inner.innerHTML = `
+            <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+            <span>${i18n.t('sys-offline-mode')}</span>
+        `;
+        banner.appendChild(inner);
+        document.body.appendChild(banner);
+    }
+}
+
+window.addEventListener('rinha-offline-mode', () => {
+    showOfflineBanner();
+});
 
 export function updateRankUI() {
     const listEl = document.getElementById('history-list');
@@ -669,4 +706,3 @@ export function updateBreedingUI() {
         btn.classList.remove('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'animate-pulse');
     }
 }
-

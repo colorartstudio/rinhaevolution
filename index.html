@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/vfx.css">
 </head>
 <body class="bg-slate-950 min-h-screen text-slate-100 selection:bg-yellow-500 selection:text-black flex flex-col">
 
@@ -734,9 +735,19 @@
         <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 p-6 shadow-2xl relative">
             <h2 class="text-xl font-display text-white uppercase text-center mb-6" data-i18n="mod-settings-title">Configurações</h2>
             
-            <div class="flex items-center justify-between mb-4 bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <span class="text-slate-300 font-bold text-sm"><i class="fas fa-volume-up mr-2 text-yellow-500"></i><span data-i18n="mod-settings-sound">Sons</span></span>
-                <button id="btn-sound-toggle" onclick="window.app.toggleSound()" class="w-10 h-5 bg-green-500 rounded-full relative transition-colors duration-300"><div class="w-4 h-4 bg-white rounded-full absolute top-0.5 left-5 transition-all duration-300 shadow-md"></div></button>
+            <div class="flex flex-col gap-3 mb-4">
+                <div class="flex items-center justify-between bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <span class="text-slate-300 font-bold text-sm"><i class="fas fa-volume-up mr-2 text-yellow-500"></i><span data-i18n="mod-settings-sound">Sons</span></span>
+                    <button id="btn-sound-toggle" onclick="window.app.toggleSound()" class="w-10 h-5 bg-green-500 rounded-full relative transition-colors duration-300">
+                        <div class="w-4 h-4 bg-white rounded-full absolute top-0.5 left-5 transition-all duration-300 shadow-md"></div>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <span class="text-slate-300 font-bold text-sm"><i class="fas fa-music mr-2 text-yellow-500"></i><span data-i18n="mod-settings-music">Música 8-bit</span></span>
+                    <button id="btn-music-toggle" onclick="window.app.toggleMusic()" class="w-10 h-5 bg-green-500 rounded-full relative transition-colors duration-300">
+                        <div class="w-4 h-4 bg-white rounded-full absolute top-0.5 left-5 transition-all duration-300 shadow-md"></div>
+                    </button>
+                </div>
             </div>
 
             <div class="mb-6 bg-slate-800 p-4 rounded-xl border border-slate-700">
@@ -1002,8 +1013,13 @@
             toggleRankModal: () => { AudioEngine.playClick(); toggleModal('rank-modal'); },
             toggleInfo: () => { AudioEngine.playClick(); document.getElementById('counter-info').classList.toggle('hidden'); },
             toggleSound: () => {
-                state.gameData.settings.mute = !state.gameData.settings.mute;
-                AudioEngine.isMuted = state.gameData.settings.mute;
+                state.gameData.settings.muteSFX = !state.gameData.settings.muteSFX;
+                state.save();
+                updateSettingsUI();
+            },
+            toggleMusic: () => {
+                state.gameData.settings.muteMusic = !state.gameData.settings.muteMusic;
+                AudioEngine.updateMusicState();
                 state.save();
                 updateSettingsUI();
             },

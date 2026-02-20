@@ -1,4 +1,6 @@
 export const STORAGE_KEY = 'rinha_evo_v3_eco';
+const isBrowser = typeof window !== 'undefined';
+export const DISABLE_CLOUD_SYNC = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 export const ELEMENTS = {
     fire: { id: 'fire', name: 'Vulcan', nameKey: 'el-fire', base: 100, icon: '🔥', tailColor1: '#ff4500', tailColor2: '#ffcc00', desc: 'Atk Max' },
@@ -39,7 +41,7 @@ class State {
             wins: 0, 
             losses: 0, 
             balance: 1000, 
-            settings: { mute: false, lang: 'pt-BR' },
+            settings: { muteSFX: false, muteMusic: false, lang: 'pt-BR' },
             inventory: {
                 roosters: [], // { id, element, color, level, xp, dna, price }
                 items: [
@@ -84,6 +86,15 @@ class State {
             const parsed = JSON.parse(stored);
             // Basic migration/merge
             this.gameData = { ...this.gameData, ...parsed };
+
+            // Migration: Audio Settings (mute -> muteSFX/muteMusic)
+            if (parsed.settings) {
+                if (parsed.settings.mute !== undefined && parsed.settings.muteSFX === undefined) {
+                    this.gameData.settings.muteSFX = parsed.settings.mute;
+                    this.gameData.settings.muteMusic = parsed.settings.mute;
+                    delete this.gameData.settings.mute;
+                }
+            }
             
             // Ensure nested objects exist
             if (!this.gameData.inventory) this.gameData.inventory = { roosters: [], items: [] };
@@ -104,6 +115,10 @@ class State {
     async save() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.gameData));
         
+        if (DISABLE_CLOUD_SYNC) {
+            return;
+        }
+        
         // Sincronização opcional com Supabase se o usuário estiver logado
         if (this.gameData.user && this.gameData.user.id) {
             try {
@@ -123,6 +138,11 @@ class State {
 
     async syncAll() {
         if (!this.gameData.user || !this.gameData.user.id) return;
+        
+        if (DISABLE_CLOUD_SYNC) {
+            console.log("Sincronização com Supabase desativada (modo desenvolvimento). Usando apenas dados locais.");
+            return true;
+        }
         
         console.log("Iniciando sincronização total com Supabase...");
         
@@ -150,7 +170,7 @@ class State {
                         this.gameData.wins = profile.wins;
                         this.gameData.losses = profile.losses;
                         this.gameData.settings = profile.settings || this.gameData.settings;
-                        this.gameData.inventory.items = profile.inventory_items || []; // <-- ADICIONADO
+                        this.gameData.inventory.items = profile.inventory_items || [];
                         if (profile.referral_code) this.gameData.referral.code = profile.referral_code;
                         console.log("Profile sincronizado.");
                     }
@@ -168,7 +188,6 @@ class State {
                     
                     if (rError) throw rError;
                     if (roosters) {
-                        // Mapeia atributos para compatibilidade com o motor de jogo
                         const mappedRoosters = roosters.map(r => ({
                             ...r,
                             atk: r.atk_base || r.atk || (ELEMENTS[r.element].base + (r.level * 2)),
@@ -213,8 +232,9 @@ class State {
             return true;
         } catch (err) {
             console.warn("Falha na sincronização (Timeout ou Erro Crítico) - Usando dados locais:", err.message);
-            // Mesmo com erro, retornamos true para não bloquear o jogo, 
-            // assumindo que os dados locais ou padrão serão usados.
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+                window.dispatchEvent(new CustomEvent('rinha-offline-mode', { detail: { reason: err.message } }));
+            }
             return true; 
         }
     }
@@ -270,7 +290,7 @@ class State {
             wins: 0, 
             losses: 0, 
             balance: 1000, 
-            settings: { mute: false, lang } 
+            settings: { muteSFX: false, muteMusic: false, lang } 
         };
         this.save();
     }
