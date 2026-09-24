@@ -1,4 +1,5 @@
 import { ELEMENTS, COLORS, SKINS } from './state.js';
+import { AudioEngine } from './audio.js';
 
 export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGhost = false) {
     let container = document.getElementById(containerId + '-avatar');
@@ -143,16 +144,65 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGh
     
     if (isGhost) {
         showDeadEyes(container);
-        container.classList.add('anim-ko-l'); // Adiciona animação de tombar
     }
 }
 
+const deadEyeX = (cx, cy, r = 6) =>
+    `<line x1="${cx - r}" y1="${cy - r}" x2="${cx + r}" y2="${cy + r}" stroke="#0f172a" stroke-width="4" stroke-linecap="round" />
+     <line x1="${cx + r}" y1="${cy - r}" x2="${cx - r}" y2="${cy + r}" stroke="#0f172a" stroke-width="4" stroke-linecap="round" />`;
+
 export function showDeadEyes(container) {
     const svg = container.querySelector('svg');
-    if(svg) {
-        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        group.setAttribute("transform", "translate(140, 50)");
-        group.innerHTML = `<line x1="15" y1="30" x2="25" y2="40" stroke="black" stroke-width="4" stroke-linecap="round" /><line x1="25" y1="30" x2="15" y2="40" stroke="black" stroke-width="4" stroke-linecap="round" />`;
-        svg.querySelector('g').appendChild(group);
+    if (!svg || container.dataset.deadEyes === '1') return;
+    container.dataset.deadEyes = '1';
+
+    const head = svg.querySelector('g[transform="translate(155, 45)"]');
+    if (head) {
+        head.querySelectorAll('circle').forEach(c => c.setAttribute('opacity', '0'));
+        head.querySelectorAll('path').forEach(p => {
+            const d = p.getAttribute('d') || '';
+            if (d.includes('28,30') && d.includes('45,34')) p.setAttribute('opacity', '0');
+        });
+        const eyes = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        eyes.setAttribute('class', 'dead-eyes');
+        eyes.innerHTML = deadEyeX(35, 38) + deadEyeX(18, 36, 4);
+        head.appendChild(eyes);
+        return;
     }
+
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('transform', 'translate(155, 45)');
+    group.setAttribute('class', 'dead-eyes');
+    group.innerHTML = deadEyeX(35, 38) + deadEyeX(18, 36, 4);
+    const root = svg.querySelector('g');
+    if (root) root.appendChild(group);
+}
+
+/**
+ * Knockout visual + som quando HP chega a 0.
+ * @param {string|HTMLElement} containerId
+ * @param {'l'|'r'} facing — l jogador, r CPU (espelhado)
+ * @param {{ element, color, dna? }|null} rooster — re-render em cinza
+ * @param {boolean} isPlayerSide — som de derrota do jogador (playLoss) vs nocaute (playDefeat)
+ */
+export function applyKnockout(containerId, facing = 'l', rooster = null, isPlayerSide = false) {
+    const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    if (!container || container.dataset.knockedOut === '1') return;
+
+    container.dataset.knockedOut = '1';
+    const koClass = facing === 'r' ? 'anim-ko-r' : 'anim-ko-l';
+
+    if (rooster) {
+        const skin = rooster.dna?.skin || 'none';
+        const id = container.id || containerId;
+        renderAvatar(id, rooster.element, rooster.color, skin, true);
+    } else {
+        showDeadEyes(container);
+    }
+
+    container.classList.remove('anim-ko-l', 'anim-ko-r');
+    container.classList.add(koClass, 'grayscale', 'opacity-60');
+
+    if (isPlayerSide) AudioEngine.playLoss();
+    else AudioEngine.playDefeat();
 }

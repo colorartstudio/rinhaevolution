@@ -1,7 +1,7 @@
 import { state, ELEMENTS, COLORS, ARENAS } from './state.js';
 import { AudioEngine } from './audio.js';
 import { VFX } from './vfx.js';
-import { renderAvatar, showDeadEyes } from './renderer.js';
+import { renderAvatar, applyKnockout } from './renderer.js';
 import { 
     updateBalanceUI, 
     updateSettingsUI, 
@@ -21,6 +21,18 @@ import { SkillService, SKILLS } from './skills.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let playerActionResolve = null;
+
+function syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster) {
+    if (cHP <= 0) applyKnockout(cAv, 'r', cRooster, false);
+    if (pHP <= 0) applyKnockout(pAv, 'l', pRooster, true);
+}
+
+function syncTeamKnockouts(pHP, cHP, pTeam, cTeam) {
+    for (let i = 0; i < 3; i++) {
+        if (pHP[i] <= 0 && pTeam[i]) applyKnockout(`player-avatar-${i}`, 'l', pTeam[i], true);
+        if (cHP[i] <= 0 && cTeam[i]) applyKnockout(`cpu-avatar-${i}`, 'r', cTeam[i], false);
+    }
+}
 
 // Helper defensivo para evitar erros de elemento nulo
 const safeSetText = (id, text) => {
@@ -52,18 +64,34 @@ const safeSetStyle = (id, prop, value) => {
 function resetAllAvatarStates() {
     // Reset 1v1
     const pAv = document.getElementById('player-avatar');
-    if (pAv) pAv.className = "w-36 h-36 md:w-52 md:h-52 transition-transform duration-300";
+    if (pAv) {
+        pAv.className = "w-36 h-36 md:w-52 md:h-52 transition-transform duration-300";
+        delete pAv.dataset.knockedOut;
+        delete pAv.dataset.deadEyes;
+    }
     
     const cAv = document.getElementById('cpu-avatar');
-    if (cAv) cAv.className = "w-36 h-36 md:w-52 md:h-52 scale-x-[-1] transition-transform duration-300";
+    if (cAv) {
+        cAv.className = "w-36 h-36 md:w-52 md:h-52 scale-x-[-1] transition-transform duration-300";
+        delete cAv.dataset.knockedOut;
+        delete cAv.dataset.deadEyes;
+    }
 
     // Reset 3v3
     for (let i = 0; i < 3; i++) {
         const pSlot = document.getElementById(`player-avatar-${i}`);
-        if (pSlot) pSlot.className = "w-20 h-20 xs:w-24 xs:h-24 md:w-32 md:h-32 transition-all duration-300";
+        if (pSlot) {
+            pSlot.className = "w-20 h-20 xs:w-24 xs:h-24 md:w-32 md:h-32 transition-all duration-300";
+            delete pSlot.dataset.knockedOut;
+            delete pSlot.dataset.deadEyes;
+        }
         
         const cSlot = document.getElementById(`cpu-avatar-${i}`);
-        if (cSlot) cSlot.className = "w-20 h-20 xs:w-24 xs:h-24 md:w-32 md:h-32 scale-x-[-1] transition-all duration-300";
+        if (cSlot) {
+            cSlot.className = "w-20 h-20 xs:w-24 xs:h-24 md:w-32 md:h-32 scale-x-[-1] transition-all duration-300";
+            delete cSlot.dataset.knockedOut;
+            delete cSlot.dataset.deadEyes;
+        }
         
         // Limpa a seta de target se existir
         const target = document.getElementById(`cpu-target-${i}`);
@@ -705,6 +733,7 @@ async function battleSequence() {
                 updateHealth('c-hp-bar', (dmgC / DUEL_HP) * 100);
                 cHP = Math.max(0, cHP - dmgC);
                 syncDuelHp();
+                syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster);
 
                 if (skill.effect === 'burn') armBurn(cStatus, skill);
                 if (skill.effect === 'stun' && Math.random() < skill.chance) cStatus.stun = true;
@@ -759,6 +788,7 @@ async function battleSequence() {
             updateHealth('c-hp-bar', (cBurn / DUEL_HP) * 100);
             syncDuelHp();
             showFloatingText(cAv, `-${cBurn} ${i18n.t('btl-float-burn')}`, 'right', false);
+            syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster);
             await sleep(800);
         }
 
@@ -828,6 +858,7 @@ async function battleSequence() {
             updateHealth('p-hp-bar', (dmgP / DUEL_HP) * 100);
             pHP = Math.max(0, pHP - dmgP);
             syncDuelHp();
+            syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster);
 
             if (cSkill.effect === 'burn') armBurn(pStatus, cSkill);
             if (cSkill.effect === 'stun' && Math.random() < cSkill.chance) pStatus.stun = true;
@@ -852,8 +883,11 @@ async function battleSequence() {
             updateHealth('p-hp-bar', (pBurn / DUEL_HP) * 100);
             syncDuelHp();
             showFloatingText(pAv, `-${pBurn} ${i18n.t('btl-float-burn')}`, 'left', false);
+            syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster);
             await sleep(800);
         }
+
+        if (pHP <= 0 || cHP <= 0) break;
         
         if (!pUsedUlt && (pRooster.specialCharge || 0) < 2) pRooster.specialCharge = (pRooster.specialCharge || 0) + 1;
         if (!cUsedUlt && (cRooster.specialCharge || 0) < 2) cRooster.specialCharge = (cRooster.specialCharge || 0) + 1;
@@ -875,16 +909,14 @@ async function battleSequence() {
     }
 
     if (result === 'win') {
-        pAv.classList.add('anim-winner-l'); 
-        cAv.classList.add('anim-ko-r', 'grayscale', 'opacity-60'); 
-        showDeadEyes(cAv); 
-        AudioEngine.playWin(); 
+        pAv.classList.add('anim-winner-l');
+        if (cAv?.dataset.knockedOut !== '1') applyKnockout(cAv, 'r', cRooster, false);
+        AudioEngine.playWin();
         triggerHaptic('heavy');
     } else if (result === 'loss') {
-        cAv.classList.add('anim-winner-r'); 
-        pAv.classList.add('anim-ko-l', 'grayscale', 'opacity-60'); 
-        showDeadEyes(pAv); 
-        AudioEngine.playLoss(); 
+        cAv.classList.add('anim-winner-r');
+        if (pAv?.dataset.knockedOut !== '1') applyKnockout(pAv, 'l', pRooster, true);
+        else AudioEngine.playLoss();
         triggerHaptic('heavy');
     } else {
         // Tie visual: Both looking a bit tired but no KO
@@ -1069,6 +1101,7 @@ async function battleSequence3v3() {
                         pRoundDamageTakenByCPU[idx] += splash.actualDamage;
                         updateSlotHP('c', idx, (cHP[idx] / cMaxHP[idx]) * 100);
                     });
+                    syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
                 }
                 
                 const isUltimateArenaSkill = skill.type === 'ultimate' && skill.arenaReq === state.currentArena?.id;
@@ -1106,10 +1139,7 @@ async function battleSequence3v3() {
                     if (advDmg.type === 'weak') floatMsg = `${i18n.t('btl-weak')} ${floatMsg}`;
                     if (cAv) showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical');
 
-                    if (cHP[playerTargetIdx] <= 0) {
-                        AudioEngine.playDefeat();
-                        renderAvatar(`cpu-avatar-${playerTargetIdx}`, cGal.element, cGal.color, 'none', true);
-                    }
+                    syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
                 }
             } else if (action.type === 'item') {
                 const item = state.gameData.inventory.items.find(it => it.id === action.id);
@@ -1224,10 +1254,7 @@ async function battleSequence3v3() {
             if (advDmgP.type === 'critical') floatMsgP = `${i18n.t('btl-critical')} ${floatMsgP}`;
             if (pAv) showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical');
 
-            if (pHP[cpuTargetIdx] <= 0) {
-                AudioEngine.playDefeat();
-                renderAvatar(`player-avatar-${cpuTargetIdx}`, pGal.element, pGal.color, pGal.dna?.skin || 'none', true);
-            }
+            syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
 
             updateTotalHP(pHP, cHP);
             await sleep(400); 
@@ -1258,6 +1285,7 @@ async function battleSequence3v3() {
             }
             if (cStat[i].defTurns > 0 && --cStat[i].defTurns <= 0) cStat[i].def = 1;
         }
+        syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
 
         round++;
         if (pHP.some(h => h > 0) && cHP.some(h => h > 0)) {
@@ -1283,12 +1311,20 @@ async function battleSequence3v3() {
     const playerWon = result === 'win' ? true : (result === 'loss' ? false : null);
     
     // Animações Finais
+    syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
     if (result === 'win') {
         AudioEngine.playWin();
-        pHP.forEach((h, idx) => { if (h > 0) document.getElementById(`player-avatar-${idx}`).classList.add('anim-winner-l'); });
+        pHP.forEach((h, idx) => {
+            const el = document.getElementById(`player-avatar-${idx}`);
+            if (h > 0 && el) el.classList.add('anim-winner-l');
+        });
     } else if (result === 'loss') {
-        AudioEngine.playLoss();
-        cHP.forEach((h, idx) => { if (h > 0) document.getElementById(`cpu-avatar-${idx}`).classList.add('anim-winner-r'); });
+        const anyPlayerKo = pHP.some((h, idx) => h <= 0 && document.getElementById(`player-avatar-${idx}`)?.dataset.knockedOut === '1');
+        if (!anyPlayerKo) AudioEngine.playLoss();
+        cHP.forEach((h, idx) => {
+            const el = document.getElementById(`cpu-avatar-${idx}`);
+            if (h > 0 && el) el.classList.add('anim-winner-r');
+        });
     }
 
     saveMatchResult(playerWon, pTeam[0].element, pTeam[0].color);
