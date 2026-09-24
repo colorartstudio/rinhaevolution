@@ -105,6 +105,10 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
     align-items: center;
 }
 
+#bottom-nav.hidden {
+    display: none;
+}
+
 /* --- UTILS --- */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -379,4 +383,17 @@ h1, h2, h3, .font-display { font-family: 'Black Ops One', cursive; }
     .screen-container {
         padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom) + 160px);
     }
+}
+
+/* Barra de Ritmo — desempate por força espelhada */
+.rhythm-fill {
+    transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rhythm-fill.rhythm-ready {
+    animation: rhythm-pulse 0.9s ease-in-out infinite;
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.75);
+}
+@keyframes rhythm-pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.45); }
 }

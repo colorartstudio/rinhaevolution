@@ -17,14 +17,8 @@ export class BreedingService {
         const element = Math.random() > 0.5 ? r1.element : r2.element;
         const color = Math.random() > 0.5 ? r1.color : r2.color;
         
-        // Atributos baseados na média + bônus de fusão
-        const baseAtk = Math.floor(((r1.atk || 100) + (r2.atk || 100)) / 2) + 5;
-        const baseHp = Math.floor(((r1.hp_max || 110) + (r2.hp_max || 110)) / 2) + 15;
-        
+        // Poder na REGRA: createRooster já aplica base do elemento + 2×nível (sem inflar ATK).
         const newRooster = state.constructor.createRooster(element, color, 1);
-        newRooster.atk = baseAtk;
-        newRooster.hp_max = baseHp;
-        newRooster.hp = baseHp;
         
         const rarityRoll = Math.random();
         const rarity = rarityRoll > 0.95 ? 'legendary' : (rarityRoll > 0.8 ? 'rare' : 'common');

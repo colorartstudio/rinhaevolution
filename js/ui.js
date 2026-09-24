@@ -5,6 +5,7 @@ import { renderAvatar } from './renderer.js';
 import { MarketplaceService, AuctionEngine } from './marketplace.js';
 import { TeamService } from './team.js';
 import { ReferralService } from './referral.js';
+import { referralUILabelPercents } from './referral-economy.js';
 import { MissionService } from './missions.js';
 import { MatchLogService } from './matchLog.js';
 import { BreedingService } from './breeding.js';
@@ -558,8 +559,8 @@ export function updateReferralUI() {
     const levelsList = document.getElementById('ref-levels-list');
     if (levelsList) {
         levelsList.innerHTML = '';
-        const percentages = [5, 2, 1, 1, 1];
-        const counts = state.gameData.referral_stats || [0, 0, 0, 0, 0];
+        const percentages = referralUILabelPercents();
+        const counts = state.gameData.referral?.networkCount || [0, 0, 0, 0, 0];
         
         percentages.forEach((p, i) => {
             const div = document.createElement('div');

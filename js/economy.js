@@ -1,23 +1,29 @@
 import { state } from './state.js';
+import { PVP } from './backend.js';
+import { REFERRAL_MODEL, calcReferralCommissions, referralUILabelPercents } from './referral-economy.js';
 
 export const ECONOMY_CONFIG = {
-    RAKE_PERCENT: 0.10, // 10%
-    JACKPOT_PERCENT_OF_RAKE: 0.10, // 10% of the 10% rake goes to jackpot
+    RAKE_PERCENT: PVP.RAKE,
+    JACKPOT_PERCENT_OF_RAKE: PVP.JACKPOT_OF_RAKE,
+    WIN_PAYOUT: PVP.WIN_PAYOUT,
+    POT_SHARE: PVP.POT_SHARE,
     CONVERSION_RATE: 100, // $1 = 100 RC
     WITHDRAW_FEE: 0.05,
     SWAP_FEE: 0,
-    REFERRAL_LEVELS: [0.05, 0.02, 0.01, 0.01, 0.01] // 5%, 2%, 1%, 1%, 1%
+    REFERRAL: REFERRAL_MODEL
 };
+
+export { calcReferralCommissions, referralUILabelPercents };
 
 export class EconomyService {
     static calculateRake(amount) {
         return Math.floor(amount * ECONOMY_CONFIG.RAKE_PERCENT);
     }
 
-    static processMatchEconomy(betAmount, winnerId) {
+    static processMatchEconomy(betAmount) {
         const rake = this.calculateRake(betAmount);
         const jackpotContribution = Math.floor(rake * ECONOMY_CONFIG.JACKPOT_PERCENT_OF_RAKE);
-        const netPrize = Math.floor(betAmount * 1.8);
+        const netPrize = Math.floor(betAmount * ECONOMY_CONFIG.WIN_PAYOUT);
 
         // Atualizar estado local
         state.gameData.economy.totalRake += rake;

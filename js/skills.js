@@ -1,3 +1,28 @@
+/** Cura base do Dilúvio (% do HP máx.). Cada uso na luta multiplica por WATER_ARENA_HEAL_DECAY. */
+export const WATER_ARENA_HEAL_BASE = 30;
+/** 0.70 = −30% sobre a recuperação a cada especial de água na mesma luta (30 → 21 → 14,7 …). */
+export const WATER_ARENA_HEAL_DECAY = 0.70;
+
+/** % de cura do Dilúvio para o N-ésimo uso (0 = primeiro). */
+export function waterArenaHealPercent(usesSoFar = 0) {
+    const n = Math.max(0, Math.floor(usesSoFar) || 0);
+    return WATER_ARENA_HEAL_BASE * Math.pow(WATER_ARENA_HEAL_DECAY, n);
+}
+
+/**
+ * Cura de skill em HP. Só o especial de arena da água decai por uso na luta.
+ * Incrementa rooster.waterSpecialHeals ao aplicar o Dilúvio.
+ */
+export function applySkillHealAmount(skill, maxHp, rooster = null) {
+    let pct = skill?.value || 0;
+    if (skill?.id === 'w-arena' && skill?.effect === 'heal') {
+        const uses = rooster?.waterSpecialHeals || 0;
+        pct = waterArenaHealPercent(uses);
+        if (rooster) rooster.waterSpecialHeals = uses + 1;
+    }
+    return Math.max(0, Math.round((maxHp || 0) * (pct / 100)));
+}
+
 export const SKILLS = {
     fire: [
         { id: 'f1', nameKey: 'skill-f1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', descKey: 'skill-f1-desc' },
@@ -9,7 +34,7 @@ export const SKILLS = {
         { id: 'w1', nameKey: 'skill-w1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', descKey: 'skill-w1-desc' },
         { id: 'w5', nameKey: 'skill-w5-name', level: 5, multiplier: 0.8, cost: 25, type: 'buff', effect: 'shield', value: 0.5, duration: 1, descKey: 'skill-w5-desc' },
         { id: 'w10', nameKey: 'skill-w10-name', level: 10, multiplier: 1.8, cost: 55, type: 'attack', effect: 'aoe', descKey: 'skill-w10-desc' },
-        { id: 'w-arena', nameKey: 'skill-w-arena-name', level: 1, multiplier: 2.2, cost: 0, type: 'ultimate', effect: 'heal', value: 30, descKey: 'skill-w-arena-desc', arenaReq: 'water', charge: 2 }
+        { id: 'w-arena', nameKey: 'skill-w-arena-name', level: 1, multiplier: 2.2, cost: 0, type: 'ultimate', effect: 'heal', value: WATER_ARENA_HEAL_BASE, descKey: 'skill-w-arena-desc', arenaReq: 'water', charge: 2 }
     ],
     earth: [
         { id: 'e1', nameKey: 'skill-e1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', descKey: 'skill-e1-desc' },

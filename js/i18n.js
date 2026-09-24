@@ -240,7 +240,7 @@ const translations = {
         'skill-w10-name': 'Tsunami Coordenado',
         'skill-w10-desc': 'Ataque em área massivo',
         'skill-w-arena-name': 'Dilúvio Ancestral',
-        'skill-w-arena-desc': 'Golpe do especial e cura de 30% do HP máximo.',
+        'skill-w-arena-desc': 'Golpe do especial e cura de 30% do HP máximo (−30% a cada uso na luta).',
         'skill-e1-name': 'Pancada de Rocha',
         'skill-e1-desc': 'Ataque básico de terra',
         'skill-e5-name': 'Pele de Ferro',
@@ -257,6 +257,8 @@ const translations = {
         'skill-a10-desc': 'Três ataques rápidos seguidos',
         'skill-a-arena-name': 'Tempestade do Pico',
         'skill-a-arena-desc': '5 golpes do especial. Não soma um golpe básico.',
+        'skill-rhythm-break-name': 'Quebra-Ritmo',
+        'skill-rhythm-break-desc': 'Golpe de desempate: barra de ritmo cheia. 2.8x na força espelhada.',
         'gen-lvl-prefix': 'Lvl',
 
         // Inventory
@@ -277,7 +279,7 @@ const translations = {
 
         // Referral
         'ref-title': 'MINHA REDE',
-        'ref-subtitle': 'Indique e ganhe em 5 níveis',
+        'ref-subtitle': '50% do rake da rede · 5 níveis (25/10/5/5/5%)',
         'ref-link-label': 'Seu Link de Indicação',
         'ref-copy-btn': 'COPIAR',
         'ref-total-earnings-label': 'Total Ganho',
@@ -579,7 +581,7 @@ const translations = {
         'skill-w1-name': 'Water Jet', 'skill-w1-desc': 'Basic water damage.',
         'skill-w5-name': 'Bubble Shield', 'skill-w5-desc': 'Creates a shield reducing next damage.',
         'skill-w10-name': 'Tsunami', 'skill-w10-desc': 'Giant wave hitting with full force.',
-        'skill-w-arena-name': 'Ancient Flood', 'skill-w-arena-desc': 'Lagoon Power: Damage and heal.',
+        'skill-w-arena-name': 'Ancient Flood', 'skill-w-arena-desc': 'Lagoon Power: Damage and 30% max HP heal (−30% each use in the fight).',
         'skill-e1-name': 'Rock Smash', 'skill-e1-desc': 'Basic earth damage.',
         'skill-e5-name': 'Iron Armor', 'skill-e5-desc': 'Increases defense for 2 turns.',
         'skill-e10-name': 'Earthquake', 'skill-e10-desc': 'High damage with stun chance.',
@@ -588,6 +590,8 @@ const translations = {
         'skill-a5-name': 'Swift Dodge', 'skill-a5-desc': 'Greatly increases dodge chance.',
         'skill-a10-name': 'Hurricane', 'skill-a10-desc': 'Ultra fast triple attack.',
         'skill-a-arena-name': 'Peak Storm', 'skill-a-arena-desc': 'Peak Power: 5 consecutive attacks.',
+        'skill-rhythm-break-name': 'Rhythm Break',
+        'skill-rhythm-break-desc': 'Tiebreaker strike: full rhythm bar. 2.8x on mirrored force.',
         'gen-lvl-prefix': 'Lvl',
 
         // Inventory
@@ -608,7 +612,7 @@ const translations = {
 
         // Referral
         'ref-title': 'MY NETWORK',
-        'ref-subtitle': 'Refer and earn in 5 levels',
+        'ref-subtitle': '50% of network rake · 5 levels (25/10/5/5/5%)',
         'ref-link-label': 'Your Referral Link',
         'ref-copy-btn': 'COPY',
         'ref-total-earnings-label': 'Total Earned',
@@ -919,7 +923,7 @@ const translations = {
 
         // Referral
         'ref-title': 'MI RED',
-        'ref-subtitle': 'Refiere y gana en 5 niveles',
+        'ref-subtitle': '50% del rake de red · 5 niveles (25/10/5/5/5%)',
         'ref-link-label': 'Tu enlace de referido',
         'ref-copy-btn': 'COPIAR',
         'ref-total-earnings-label': 'Total ganado',

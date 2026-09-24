@@ -2,6 +2,9 @@
  * Backend acoplado: todas as tabelas vivem no LocalStorage deste navegador.
  * Conta nova começa em zero. Oponentes e depósitos são simulados na hora.
  */
+import { calcReferralCommissions, REFERRAL_MODEL } from './referral-economy.js';
+import { derivedPvpFromRake } from './pvp-economy.js';
+
 const DB_KEY = 'rinha_db_v1';
 const SESSION_KEY = 'rinha_session_v1';
 
@@ -9,16 +12,83 @@ const ELEMENTS = ['fire', 'earth', 'water', 'air'];
 const COLORS = ['red', 'blue', 'green', 'yellow'];
 const BASE = { fire: 100, earth: 95, water: 90, air: 85 };
 
+const _pvpCore = derivedPvpFromRake();
+
 export const PVP = {
-    WIN_PAYOUT: 1.8,
-    RAKE: 0.10,
-    JACKPOT_OF_RAKE: 0.10,
+    /** Cada lado: 15% rake, 85% no pote; vencedor leva o pote (1,7× a aposta). Ver pvp-economy.js */
+    ..._pvpCore,
     XP_WIN: 50,
     XP_DRAW: 20,
     XP_LOSS: 10,
     TOURNAMENT_FEE: 500,
     BETS: [50, 100, 500]
 };
+
+/** Liquidação PvP 1v1/3v3: mesma aposta, pote = POT_SHARE de cada lado. */
+export function calcMatchSettlement(bet, result) {
+    const safeBet = Math.max(0, Math.floor(bet));
+    if (result === 'win') {
+        const rake = Math.floor(safeBet * PVP.RAKE);
+        const credit = Math.floor(safeBet * PVP.WIN_PAYOUT);
+        const jackpotContribution = Math.floor(rake * PVP.JACKPOT_OF_RAKE);
+        return { credit, rake, jackpotContribution, financial: credit - safeBet };
+    }
+    if (result === 'loss') {
+        const rake = Math.floor(safeBet * PVP.RAKE);
+        const jackpotContribution = Math.floor(rake * PVP.JACKPOT_OF_RAKE);
+        return { credit: 0, rake, jackpotContribution, financial: -safeBet };
+    }
+    return { credit: safeBet, rake: 0, jackpotContribution: 0, financial: 0 };
+}
+
+function getReferralUpline(db, playerUserId) {
+    const chain = [];
+    let currentId = playerUserId;
+    for (let i = 0; i < REFERRAL_MODEL.MAX_LEVELS; i++) {
+        const link = db.referrals.find(r => r.referredId === currentId);
+        if (!link) break;
+        const referrer = db.profiles[link.referrerId];
+        if (!referrer) break;
+        chain.push({ referrerId: link.referrerId, profile: referrer, link });
+        currentId = link.referrerId;
+    }
+    return chain;
+}
+
+function bumpNetworkCountsForNewMember(db, directReferrerId) {
+    let currentId = directReferrerId;
+    for (let level = 0; level < REFERRAL_MODEL.MAX_LEVELS; level++) {
+        const profile = db.profiles[currentId];
+        if (!profile?.referral) break;
+        if (!profile.referral.networkCount) profile.referral.networkCount = [0, 0, 0, 0, 0];
+        profile.referral.networkCount[level] = (profile.referral.networkCount[level] || 0) + 1;
+        db.profiles[currentId] = profile;
+        const uplink = db.referrals.find(r => r.referredId === currentId);
+        if (!uplink) break;
+        currentId = uplink.referrerId;
+    }
+}
+
+function payReferralCommissions(db, playerUserId, rake) {
+    if (rake <= 0) return;
+    const amounts = calcReferralCommissions(rake);
+    const upline = getReferralUpline(db, playerUserId);
+    amounts.forEach((earning, index) => {
+        if (earning <= 0 || index >= upline.length) return;
+        const { profile: referrer, link } = upline[index];
+        referrer.balance += earning;
+        referrer.referral.totalEarnings = (referrer.referral.totalEarnings || 0) + earning;
+        referrer.transactions.unshift({
+            id: uid('tx'),
+            amount: earning,
+            type: 'referral_reward',
+            description: `Comissão de rede (${index + 1}º nível)`,
+            at: Date.now()
+        });
+        link.totalCommission = (link.totalCommission || 0) + (index === 0 ? earning : 0);
+        db.profiles[referrer.user.id] = referrer;
+    });
+}
 
 function emptyDb() {
     return {
@@ -118,7 +188,12 @@ export const LocalBackend = {
     saveProfile(profile) {
         if (!profile?.user?.id) return;
         const db = readDb();
+        const prev = db.profiles[profile.user.id];
         profile.economy = { ...db.economy };
+        // Durante a luta o cliente salva inventário/HP sem pendingBet; não apagar a aposta travada.
+        if (prev?.pendingBet && !profile.pendingBet) {
+            profile.pendingBet = prev.pendingBet;
+        }
         db.profiles[profile.user.id] = profile;
         const user = db.users.find(u => u.id === profile.user.id);
         if (user) user.username = profile.user.name;
@@ -219,26 +294,14 @@ export const LocalBackend = {
             return { balance: profile?.balance ?? 0, financial: 0, rake: 0, jackpotContribution: 0, credit: 0 };
         }
         const bet = profile.pendingBet.amount;
-        let credit = 0;
-        let rake = 0;
-        if (result === 'win') {
-            credit = Math.floor(bet * PVP.WIN_PAYOUT);
-            rake = Math.floor(bet * PVP.RAKE);
-            profile.wins += 1;
-        } else if (result === 'loss') {
-            credit = 0;
-            rake = Math.floor(bet * PVP.RAKE);
-            profile.losses += 1;
-        } else {
-            credit = bet;
-            rake = 0;
-        }
-        const jackpotContribution = Math.floor(rake * PVP.JACKPOT_OF_RAKE);
+        const settlement = calcMatchSettlement(bet, result);
+        const { credit, rake, jackpotContribution, financial } = settlement;
+        if (result === 'win') profile.wins += 1;
+        else if (result === 'loss') profile.losses += 1;
         profile.balance += credit;
         db.economy.totalRake += rake;
         db.economy.jackpotPool += jackpotContribution;
         profile.economy = { ...db.economy };
-        const financial = result === 'win' ? credit - bet : (result === 'loss' ? -bet : 0);
         profile.matches.unshift({
             result,
             financial,
@@ -253,29 +316,7 @@ export const LocalBackend = {
             description: 'Resultado da rinha',
             at: Date.now()
         });
-        db.referrals
-            .filter(r => r.referredId === userId)
-            .forEach(() => { /* comissão só sobre rake de vitória do indicado, aplicada abaixo */ });
-        if (rake > 0) {
-            const link = db.referrals.find(r => r.referredId === userId);
-            if (link) {
-                const percents = [0.05, 0.02, 0.01, 0.01, 0.01];
-                const earning = Math.floor(rake * (percents[0] || 0));
-                const referrer = db.profiles[link.referrerId];
-                if (referrer && earning > 0) {
-                    referrer.balance += earning;
-                    referrer.referral.totalEarnings += earning;
-                    referrer.transactions.unshift({
-                        id: uid('tx'),
-                        amount: earning,
-                        type: 'referral_reward',
-                        description: 'Comissão de indicação',
-                        at: Date.now()
-                    });
-                    link.totalCommission = (link.totalCommission || 0) + earning;
-                }
-            }
-        }
+        payReferralCommissions(db, userId, rake);
         profile.pendingBet = null;
         db.profiles[userId] = profile;
         writeDb(db);
@@ -365,7 +406,7 @@ export const LocalBackend = {
         if (!referrer) return false;
         profile.referral.referrer = code;
         db.referrals.push({ referrerId: referrer.user.id, referredId: userId, level: 1, totalCommission: 0 });
-        referrer.referral.networkCount[0] = (referrer.referral.networkCount[0] || 0) + 1;
+        bumpNetworkCountsForNewMember(db, referrer.user.id);
         db.profiles[userId] = profile;
         writeDb(db);
         return true;

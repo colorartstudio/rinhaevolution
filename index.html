@@ -162,8 +162,8 @@
                     <button onclick="window.app.toggleSettingsModal()" class="w-8 h-8 rounded-full bg-slate-800/50 border border-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-all active:scale-90 shadow-md">
                         <i class="fas fa-cog text-xs"></i>
                     </button>
-                    <button onclick="window.app.toggleRankModal()" class="w-8 h-8 rounded-full bg-slate-800/50 border border-white/10 text-yellow-500/80 hover:text-yellow-400 flex items-center justify-center transition-all active:scale-90 shadow-md">
-                        <i class="fas fa-trophy text-xs"></i>
+                    <button onclick="window.app.toggleRankModal()" class="w-8 h-8 rounded-full bg-slate-800/50 border border-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-all active:scale-90 shadow-md">
+                        <i class="fas fa-history text-xs"></i>
                     </button>
                     <button onclick="window.app.showChallengeModal()" class="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:text-blue-300 flex items-center justify-center transition-all active:scale-90 shadow-md">
                         <i class="fas fa-share-alt text-xs"></i>
@@ -465,7 +465,32 @@
         </div>
         <div id="matchup-bar" class="relative z-20 mx-4 mt-2 grid grid-cols-2 gap-2 text-[10px]"></div>
 
-        <div id="battle-stage" class="relative z-10 flex-1 flex flex-col justify-between items-center pb-24 w-full max-w-2xl mx-auto opacity-0 transition-opacity duration-1000">
+        <!-- Barra de Ritmo: só em força espelhada (mesmo elemento, cor neutra) -->
+        <div id="rhythm-bar-wrap" class="hidden relative z-20 mx-4 mt-2">
+            <div class="bg-black/55 border border-amber-500/25 rounded-xl px-3 py-2">
+                <div id="rhythm-label" class="text-[9px] font-black uppercase tracking-wider text-amber-400/90 text-center mb-1.5">RITMO</div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <div class="flex justify-between text-[8px] font-bold text-blue-300 mb-0.5">
+                            <span>VOCÊ</span><span id="rhythm-p-pct">0%</span>
+                        </div>
+                        <div class="h-1.5 bg-slate-900 rounded-full overflow-hidden border border-white/10">
+                            <div id="rhythm-p-fill" class="rhythm-fill h-full w-0 bg-gradient-to-r from-amber-600 to-amber-300"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[8px] font-bold text-red-300 mb-0.5">
+                            <span>CPU</span><span id="rhythm-c-pct">0%</span>
+                        </div>
+                        <div class="h-1.5 bg-slate-900 rounded-full overflow-hidden border border-white/10 flex justify-end">
+                            <div id="rhythm-c-fill" class="rhythm-fill h-full w-0 bg-gradient-to-l from-amber-700 to-orange-400"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="battle-stage" class="relative z-10 flex-1 flex flex-col justify-between items-center pb-52 w-full max-w-2xl mx-auto opacity-0 transition-opacity duration-1000">
             <!-- TIME CPU (AXIE STYLE) -->
             <div id="cpu-team-battle" class="w-full px-4 flex flex-col items-center mt-4">
                 <!-- Barra Total CPU -->
@@ -576,7 +601,7 @@
             </div>
 
             <!-- SKILL SELECTION PANEL -->
-            <div id="skill-panel" class="hidden absolute bottom-24 left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-4 animate-slide-up">
+            <div id="skill-panel" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[1100] w-full max-w-md px-4 animate-slide-up">
                 <div class="bg-slate-900/90 backdrop-blur-xl border border-yellow-500/30 rounded-3xl p-4 shadow-2xl">
                     <div class="flex justify-between items-center mb-3">
                         <div class="flex items-center gap-2">
@@ -608,7 +633,7 @@
                 <div class="bg-slate-800 rounded-xl p-3 mb-4 border border-yellow-500/30">
                     <div class="text-xs text-slate-400 uppercase font-bold" data-i18n="res-finance-title">Resultado Financeiro</div>
                     <div id="financial-result" class="text-3xl font-mono font-bold text-yellow-400 mt-1">+180 RC</div>
-                    <div id="financial-detail" class="text-[10px] text-slate-500 mt-1">Aposta: 100 | Prêmio: 180 (Taxa 10%)</div>
+                    <div id="financial-detail" class="text-[10px] text-slate-500 mt-1">Aposta: 100 | Prêmio: 170 (Taxa 15%)</div>
                 </div>
 
                 <div class="bg-slate-800/50 rounded-lg p-2 mb-4 text-xs text-slate-400 flex items-center justify-center gap-2 border border-slate-700">
@@ -915,6 +940,7 @@
         import i18n from './js/i18n.js';
         import { EconomyService } from './js/economy.js';
         import { ReferralService } from './js/referral.js';
+        import { referralUILabelPercents } from './js/referral-economy.js';
         import { MarketplaceService, AuctionEngine } from './js/marketplace.js';
         import { MissionService } from './js/missions.js';
         import { TournamentService } from './js/tournament.js';
@@ -1669,8 +1695,7 @@
             
             const levelsList = document.getElementById('ref-levels-list');
             levelsList.innerHTML = '';
-            const labels = ['1º Nível (5%)', '2º Nível (2%)', '3º Nível (1%)', '4º Nível (1%)', '5º Nível (1%)'];
-            const percentages = [5, 2, 1, 1, 1];
+            const percentages = referralUILabelPercents();
             (stats.networkCount || []).forEach((count, i) => {
                 const div = document.createElement('div');
                 div.className = 'bg-slate-900/50 border border-slate-800 rounded-xl p-3 flex justify-between items-center';

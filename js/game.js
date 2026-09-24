@@ -17,20 +17,41 @@ import { MissionService, MISSION_TYPES } from './missions.js';
 import { TournamentService } from './tournament.js';
 import { MatchLogService } from './matchLog.js';
 
-import { SkillService, SKILLS } from './skills.js';
+import { SkillService, SKILLS, applySkillHealAmount, waterArenaHealPercent } from './skills.js';
+import { PVP } from './backend.js';
+import {
+    RHYTHM_BREAKER_ID,
+    isMirroredForceMatch,
+    createRhythmState,
+    renderRhythmUI,
+    hideRhythmUI,
+    applyRhythmAfterAction,
+    applyRhythmHealItemPenalty,
+    isRhythmBreakerReady,
+    consumeRhythmBreaker,
+    getRhythmBreakerSkill
+} from './rhythm-breaker.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let playerActionResolve = null;
 
-function syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster) {
-    if (cHP <= 0) applyKnockout(cAv, 'r', cRooster, false);
-    if (pHP <= 0) applyKnockout(pAv, 'l', pRooster, true);
+/** Resolve skill do elenco ou o Quebra-Ritmo (sem misturar no SKILLS global). */
+function resolveDuelSkill(element, skillId, rhythm, side) {
+    if (skillId === RHYTHM_BREAKER_ID) {
+        return isRhythmBreakerReady(rhythm, side) ? getRhythmBreakerSkill() : null;
+    }
+    return SKILLS[element]?.find(s => s.id === skillId) || null;
 }
 
-function syncTeamKnockouts(pHP, cHP, pTeam, cTeam) {
+function syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster, { deferCpuKo = false, deferPlayerKo = false } = {}) {
+    if (cHP <= 0 && !deferCpuKo) applyKnockout(cAv, 'r', cRooster, false);
+    if (pHP <= 0 && !deferPlayerKo) applyKnockout(pAv, 'l', pRooster, true);
+}
+
+function syncTeamKnockouts(pHP, cHP, pTeam, cTeam, { deferCpuKo = false } = {}) {
     for (let i = 0; i < 3; i++) {
         if (pHP[i] <= 0 && pTeam[i]) applyKnockout(`player-avatar-${i}`, 'l', pTeam[i], true);
-        if (cHP[i] <= 0 && cTeam[i]) applyKnockout(`cpu-avatar-${i}`, 'r', cTeam[i], false);
+        if (cHP[i] <= 0 && cTeam[i] && !deferCpuKo) applyKnockout(`cpu-avatar-${i}`, 'r', cTeam[i], false);
     }
 }
 
@@ -271,6 +292,11 @@ export async function checkBalanceAndStart() {
         state.battleResult = null;
         state.betLocked = true;
         state.gameData.balance = data.newBalance;
+        state.gameData.pendingBet = {
+            amount: state.currentBet,
+            mode: state.gameMode || '1v1',
+            at: Date.now()
+        };
         state.cpu.element = data.cpu.element;
         state.cpu.color = data.cpu.color;
         state.cpuTeam = data.cpuTeam || [];
@@ -478,7 +504,7 @@ function showFinalResult3v3(playerWon, report) {
     showDetailedResult(playerWon, report);
 }
 
-async function showPlayerSkills(rooster) {
+async function showPlayerSkills(rooster, rhythm = null) {
     const panel = document.getElementById('skill-panel');
     const container = document.getElementById('skill-buttons');
     const timerEl = document.getElementById('turn-timer');
@@ -488,6 +514,9 @@ async function showPlayerSkills(rooster) {
     
     // Passamos a arena atual para desbloquear skills especiais
     const skills = SkillService.getSkillsForRooster(rooster.element, rooster.level, state.currentArena?.id);
+    if (isRhythmBreakerReady(rhythm, 'player')) {
+        skills.unshift(getRhythmBreakerSkill());
+    }
     
     let timerInterval = null;
 
@@ -506,6 +535,7 @@ async function showPlayerSkills(rooster) {
         const canAfford = (rooster.energy || 0) >= skill.cost && !charging && !arenaLocked;
         const isOnCooldown = rooster.cooldowns && rooster.cooldowns[skill.id] > 0;
         const cooldownTurns = isOnCooldown ? rooster.cooldowns[skill.id] : 0;
+        const isRhythm = skill.type === 'rhythm';
         
         const btn = document.createElement('button');
         
@@ -514,10 +544,12 @@ async function showPlayerSkills(rooster) {
                 cleanupTimer();
                 handleSkillClick(skill.id);
             };
-            // Destaque para Ultimate
+            // Destaque para Ultimate / Quebra-Ritmo
             const isUlt = skill.type === 'ultimate';
-            const borderClass = isUlt ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'border-slate-700 hover:border-yellow-500/50';
-            const bgClass = isUlt ? 'bg-gradient-to-b from-slate-800 to-slate-900' : 'bg-gradient-to-b from-slate-800 to-slate-900';
+            const borderClass = isRhythm
+                ? 'border-amber-400 shadow-[0_0_18px_rgba(251,191,36,0.45)]'
+                : (isUlt ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'border-slate-700 hover:border-yellow-500/50');
+            const bgClass = isUlt || isRhythm ? 'bg-gradient-to-b from-slate-800 to-slate-900' : 'bg-gradient-to-b from-slate-800 to-slate-900';
             
             btn.className = `flex flex-col items-center justify-center p-3 ${bgClass} hover:from-slate-700 hover:to-slate-800 border-2 ${borderClass} rounded-2xl transition-all active:scale-95 group shadow-lg ring-1 ring-yellow-500/20`;
         } else {
@@ -547,6 +579,16 @@ async function showPlayerSkills(rooster) {
             `;
         }
 
+        const healChip = skill.id === 'w-arena'
+            ? `<div class="flex items-center bg-cyan-900/40 px-1.5 py-0.5 rounded-md border border-cyan-500/30">
+                    <span class="text-[9px] text-cyan-300 font-black">+${Math.round(waterArenaHealPercent(rooster.waterSpecialHeals || 0))}%</span>
+               </div>`
+            : '';
+        const rhythmChip = isRhythm
+            ? `<div class="flex items-center bg-amber-900/50 px-1.5 py-0.5 rounded-md border border-amber-400/40">
+                    <span class="text-[9px] text-amber-300 font-black">DESEMPATE</span>
+               </div>`
+            : '';
         btn.innerHTML = `
             ${cooldownOverlay}
             <span class="text-[11px] font-black text-white uppercase tracking-wider ${canAfford && !isOnCooldown ? 'group-hover:text-yellow-400' : 'text-slate-600'}">${i18n.t(skill.nameKey)}</span>
@@ -554,6 +596,8 @@ async function showPlayerSkills(rooster) {
                 <div class="flex items-center bg-black/40 px-1.5 py-0.5 rounded-md border border-white/5">
                     <span class="text-[9px] text-yellow-500/80 font-bold">${skill.multiplier}x</span>
                 </div>
+                ${healChip}
+                ${rhythmChip}
                 <div class="flex items-center bg-blue-900/30 px-1.5 py-0.5 rounded-md border border-blue-500/20">
                     <span class="text-[9px] ${canAfford ? 'text-blue-300' : 'text-red-400'} font-black">${skill.cost} MP</span>
                 </div>
@@ -577,8 +621,10 @@ async function showPlayerSkills(rooster) {
         
         if (timeLeft <= 0) {
             cleanupTimer();
-            // Auto-select first affordable skill or just first skill
-            const defaultSkill = skills.find(s => s.cost <= (rooster.energy || 0)) || skills[0];
+            // Prefer Quebra-Ritmo se pronto; senão primeira skill pagável
+            const defaultSkill = skills.find(s => s.type === 'rhythm')
+                || skills.find(s => s.cost <= (rooster.energy || 0))
+                || skills[0];
             if (defaultSkill) {
                 handleSkillClick(defaultSkill.id);
             } else {
@@ -606,6 +652,62 @@ function triggerHaptic(type = 'light') {
     else if (type === 'heavy') window.navigator.vibrate([100, 50, 100]);
 }
 
+const SPECIAL_CHARGE_READY = 2;
+
+function getCpuAffordableSkills(rooster, arenaId) {
+    const skills = SkillService.getSkillsForRooster(rooster.element, rooster.level, arenaId);
+    return skills.filter(s => {
+        if (s.cost > (rooster.energy || 0)) return false;
+        if (rooster.cooldowns && rooster.cooldowns[s.id] > 0) return false;
+        if (s.type === 'ultimate') {
+            if ((rooster.specialCharge || 0) < SPECIAL_CHARGE_READY || s.arenaLocked) return false;
+        }
+        return true;
+    });
+}
+
+/** Escolha de skill da CPU: prioriza especial na arena certa; golpes fortes quando não usa ultimate. */
+function pickCpuBattleSkill(rooster, arenaId, { hpRatio = 1, opponentHpRatio = 1, rhythm = null } = {}) {
+    if (isRhythmBreakerReady(rhythm, 'cpu')) {
+        return getRhythmBreakerSkill();
+    }
+
+    const affordable = getCpuAffordableSkills(rooster, arenaId);
+    const fallback = SkillService.getSkillsForRooster(rooster.element, rooster.level, arenaId)[0];
+    if (!affordable.length) return fallback;
+
+    const ultimate = affordable.find(s => s.type === 'ultimate' && !s.arenaLocked);
+    if (ultimate && (rooster.specialCharge || 0) >= SPECIAL_CHARGE_READY) {
+        const el = rooster.element;
+        let useUlt = false;
+
+        if (el === 'fire' || el === 'air') {
+            useUlt = Math.random() < 0.9;
+        } else if (el === 'water') {
+            if (hpRatio < 0.55) useUlt = true;
+            else if (hpRatio < 0.8) useUlt = Math.random() < 0.7;
+            else useUlt = Math.random() < 0.4;
+        } else if (el === 'earth') {
+            if (hpRatio < 0.55 || opponentHpRatio > hpRatio + 0.12) useUlt = true;
+            else useUlt = Math.random() < 0.82;
+        } else {
+            useUlt = Math.random() < 0.85;
+        }
+
+        if (useUlt) return ultimate;
+    }
+
+    const basics = affordable.filter(s => s.type !== 'ultimate');
+    if (basics.length) {
+        basics.sort((a, b) => b.multiplier - a.multiplier);
+        const best = basics[0].multiplier;
+        const tier = basics.filter(s => s.multiplier >= best - 0.15);
+        return tier[Math.floor(Math.random() * tier.length)];
+    }
+
+    return affordable[Math.floor(Math.random() * affordable.length)];
+}
+
 async function battleSequence() {
     if (state.gameMode === '3v3') {
         await battleSequence3v3();
@@ -617,6 +719,12 @@ async function battleSequence() {
     const cRooster = state.constructor.createRooster(state.cpu.element, state.cpu.color, pRooster.level);
     
     const isTieBattle = isIdentical(pRooster, cRooster);
+    // Força espelhada (ex.: Água-Solar vs Água-Oceânico): barra de ritmo, sem empate automático
+    const rhythm = (!isTieBattle && isMirroredForceMatch(pRooster, cRooster))
+        ? createRhythmState()
+        : null;
+    if (rhythm) renderRhythmUI(rhythm);
+    else hideRhythmUI();
 
     // Initial UI Setup
     pRooster.energy = pRooster.energy_max || 100;
@@ -627,6 +735,8 @@ async function battleSequence() {
     cRooster.cooldowns = {};
     pRooster.specialCharge = 2;
     cRooster.specialCharge = 2;
+    pRooster.waterSpecialHeals = 0;
+    cRooster.waterSpecialHeals = 0;
     renderMatchup(pRooster, cRooster);
 
     updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
@@ -652,8 +762,13 @@ async function battleSequence() {
     // Turn Loop (Até a morte ou limite de segurança)
     let round = 1;
     const MAX_ROUNDS = 100;
+    let tieCpuRetaliationPending = false;
 
-    while (pHP > 0 && cHP > 0 && round <= MAX_ROUNDS) {
+    while (round <= MAX_ROUNDS) {
+        if (!isTieBattle && (pHP <= 0 || cHP <= 0)) break;
+        if (isTieBattle && pHP <= 0 && cHP <= 0) break;
+
+        tieCpuRetaliationPending = false;
         pRooster.energy = Math.min(pRooster.energy_max || 100, pRooster.energy + 20);
         cRooster.energy = Math.min(cRooster.energy_max || 100, cRooster.energy + 20);
         
@@ -674,10 +789,18 @@ async function battleSequence() {
 
         // --- PLAYER TURN ---
         if (!pStatus.stun) {
-            const action = await showPlayerSkills(pRooster);
+            const action = await showPlayerSkills(pRooster, rhythm);
             
             if (action.type === 'skill') {
-                const skill = SKILLS[pRooster.element].find(s => s.id === action.id);
+                let skill = resolveDuelSkill(pRooster.element, action.id, rhythm, 'player');
+                if (!skill) {
+                    skill = SKILLS[pRooster.element]?.[0] || null;
+                }
+                if (!skill) {
+                    await sleep(200);
+                } else {
+                const usedBreaker = skill.type === 'rhythm';
+                if (usedBreaker) consumeRhythmBreaker(rhythm, 'player');
                 pRooster.energy -= skill.cost;
                 
                 // Set Cooldown
@@ -698,7 +821,7 @@ async function battleSequence() {
                     }
                     advDmg = calculateAdvancedDamage(pRooster.atk, skill.multiplier, pRooster.level, state.currentArena, pRooster.element, pRooster.color, cStatus);
                     if (isTieBattle) {
-                        dmgC += Math.round(DUEL_HP / MAX_ROUNDS);
+                        dmgC += tieDuelHitDamage(DUEL_HP, skill.multiplier);
                     } else {
                         dmgC += applyProportionalHit(advDmg.value, cStatus.shield, cStatus.def, DUEL_HP);
                     }
@@ -707,17 +830,18 @@ async function battleSequence() {
                 if (cStatus.dodge) cStatus.dodge = 0;
 
                 const isUltimateArenaSkill = skill.type === 'ultimate' && skill.arenaReq === state.currentArena?.id;
+                const isRhythmStrike = usedBreaker;
                 
                 if (pAv) {
-                    if (isUltimateArenaSkill) {
-                    const elClass = `arena-magic-${pRooster.element}`;
-                    pAv.classList.add('arena-magic-cast', elClass);
-                    AudioEngine.playElementUltimate(pRooster.element);
-                    VFX.play(pRooster.element, cAv); // Play VFX on target
-                } else {
-                    pAv.classList.add('anim-lunge-up', 'anim-wing-flap');
-                    AudioEngine.playAttack();
-                }
+                    if (isUltimateArenaSkill || isRhythmStrike) {
+                        const elClass = isRhythmStrike ? 'arena-magic-air' : `arena-magic-${pRooster.element}`;
+                        pAv.classList.add('arena-magic-cast', elClass);
+                        AudioEngine.playElementUltimate(pRooster.element);
+                        VFX.play(pRooster.element, cAv);
+                    } else {
+                        pAv.classList.add('anim-lunge-up', 'anim-wing-flap');
+                        AudioEngine.playAttack();
+                    }
                 } else {
                     AudioEngine.playAttack();
                 }
@@ -726,14 +850,18 @@ async function battleSequence() {
                 
                 // Feedback visual de Crítico/Fraco
                 let floatMsg = `-${dmgC}`;
+                if (usedBreaker) floatMsg = `RITMO ${floatMsg}`;
                 if (advDmg.type === 'critical') floatMsg = `${i18n.t('btl-critical')} ${floatMsg}`;
                 if (advDmg.type === 'weak') floatMsg = `${i18n.t('btl-weak')} ${floatMsg}`;
                 
-                if (cAv) showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical'); 
+                if (cAv) showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical' || usedBreaker); 
                 updateHealth('c-hp-bar', (dmgC / DUEL_HP) * 100);
                 cHP = Math.max(0, cHP - dmgC);
                 syncDuelHp();
-                syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster);
+                if (isTieBattle && cHP <= 0 && pHP > 0) tieCpuRetaliationPending = true;
+                syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster, {
+                    deferCpuKo: isTieBattle && tieCpuRetaliationPending
+                });
 
                 if (skill.effect === 'burn') armBurn(cStatus, skill);
                 if (skill.effect === 'stun' && Math.random() < skill.chance) cStatus.stun = true;
@@ -741,13 +869,17 @@ async function battleSequence() {
                 if (skill.effect === 'def') { pStatus.def = skill.value; pStatus.defTurns = skill.duration || 1; }
                 if (skill.effect === 'dodge') pStatus.dodge = skill.chance || 0.4;
                 if (skill.effect === 'heal') {
-                    const heal = Math.round(DUEL_HP * (skill.value / 100));
+                    const heal = applySkillHealAmount(skill, DUEL_HP, pRooster);
                     pHP = Math.min(DUEL_HP, pHP + heal);
                     updateHealth('p-hp-bar', -(heal / DUEL_HP) * 100);
                     syncDuelHp();
                     if (pAv) showFloatingText(pAv, `+${heal}`, 'left', false);
                     // Atualiza estado global
                     pRooster.hp_current = pHP;
+                }
+
+                applyRhythmAfterAction(rhythm, 'player', { usedUlt: pUsedUlt, usedBreaker });
+                renderRhythmUI(rhythm);
                 }
             } else if (action.type === 'item') {
                 const item = state.gameData.inventory.items.find(i => i.id === action.id);
@@ -759,6 +891,8 @@ async function battleSequence() {
                     syncDuelHp();
                     if (pAv) showFloatingText(pAv, `+${heal} 🧪`, 'left', false);
                     pRooster.hp_current = pHP;
+                    applyRhythmHealItemPenalty(rhythm, 'player');
+                    renderRhythmUI(rhythm);
                 } else if (item.type === 'energy') {
                     pRooster.energy = Math.min(pRooster.energy_max || 100, pRooster.energy + item.value);
                     updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
@@ -779,32 +913,33 @@ async function battleSequence() {
             await sleep(1000);
         }
 
-        if (cHP <= 0) break;
+        if (cHP <= 0 && !tieCpuRetaliationPending) break;
 
         // Apply Burn
         const cBurn = takeBurn(cStatus, DUEL_HP);
-        if (cBurn > 0) {
+        if (cBurn > 0 && cHP > 0) {
             cHP = Math.max(0, cHP - cBurn);
             updateHealth('c-hp-bar', (cBurn / DUEL_HP) * 100);
             syncDuelHp();
             showFloatingText(cAv, `-${cBurn} ${i18n.t('btl-float-burn')}`, 'right', false);
-            syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster);
+            if (isTieBattle && cHP <= 0 && pHP > 0) tieCpuRetaliationPending = true;
+            syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster, {
+                deferCpuKo: isTieBattle && tieCpuRetaliationPending
+            });
             await sleep(800);
         }
 
-        if (cHP <= 0) break;
+        if (cHP <= 0 && !tieCpuRetaliationPending) break;
 
         // --- CPU TURN ---
-        if (!cStatus.stun) {
-            // CPU também pode usar skills de arena se aplicável
-            const cSkills = SkillService.getSkillsForRooster(cRooster.element, cRooster.level, state.currentArena?.id);
-            const affordableSkills = cSkills.filter(s => {
-                if (s.cost > cRooster.energy) return false;
-                if (cRooster.cooldowns && cRooster.cooldowns[s.id] > 0) return false;
-                if (s.type === 'ultimate' && ((cRooster.specialCharge || 0) < 2 || s.arenaLocked)) return false;
-                return true;
+        if (!cStatus.stun && (cHP > 0 || tieCpuRetaliationPending)) {
+            const cSkill = pickCpuBattleSkill(cRooster, state.currentArena?.id, {
+                hpRatio: cHP / DUEL_HP,
+                opponentHpRatio: pHP / DUEL_HP,
+                rhythm
             });
-            const cSkill = affordableSkills.length > 0 ? affordableSkills[Math.floor(Math.random() * affordableSkills.length)] : cSkills[0];
+            const usedCpuBreaker = cSkill.type === 'rhythm';
+            if (usedCpuBreaker) consumeRhythmBreaker(rhythm, 'cpu');
             
             cRooster.energy -= cSkill.cost;
             if (cSkill.cooldown) {
@@ -826,7 +961,7 @@ async function battleSequence() {
                 }
                 advDmgP = calculateAdvancedDamage(cRooster.atk, cSkill.multiplier, cRooster.level, state.currentArena, cRooster.element, cRooster.color, pStatus);
                 if (isTieBattle) {
-                    dmgP += Math.round(DUEL_HP / MAX_ROUNDS);
+                    dmgP += tieDuelHitDamage(DUEL_HP, cSkill.multiplier);
                 } else {
                     dmgP += applyProportionalHit(advDmgP.value, pStatus.shield, pStatus.def, DUEL_HP);
                 }
@@ -837,8 +972,8 @@ async function battleSequence() {
             // CPU Attack Visuals
             const isCpuUltimate = cSkill.type === 'ultimate' && cSkill.arenaReq === state.currentArena?.id;
             
-            if (isCpuUltimate) {
-                const elClass = `arena-magic-${cRooster.element}`;
+            if (isCpuUltimate || usedCpuBreaker) {
+                const elClass = usedCpuBreaker ? 'arena-magic-air' : `arena-magic-${cRooster.element}`;
                 if(cAv) cAv.classList.add('arena-magic-cast', elClass);
                 AudioEngine.playElementUltimate(cRooster.element);
                 if(cAv && pAv) VFX.play(cRooster.element, pAv);
@@ -851,10 +986,11 @@ async function battleSequence() {
             if (pAv) pAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('medium');
             
             let floatMsgP = `-${dmgP}`;
+            if (usedCpuBreaker) floatMsgP = `RITMO ${floatMsgP}`;
             if (advDmgP.type === 'critical') floatMsgP = `${i18n.t('btl-critical')} ${floatMsgP}`;
             if (advDmgP.type === 'weak') floatMsgP = `${i18n.t('btl-weak')} ${floatMsgP}`;
 
-            if (pAv) showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical'); 
+            if (pAv) showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical' || usedCpuBreaker); 
             updateHealth('p-hp-bar', (dmgP / DUEL_HP) * 100);
             pHP = Math.max(0, pHP - dmgP);
             syncDuelHp();
@@ -865,14 +1001,27 @@ async function battleSequence() {
             if (cSkill.effect === 'shield') cStatus.shield = cSkill.value;
             if (cSkill.effect === 'def') { cStatus.def = cSkill.value; cStatus.defTurns = cSkill.duration || 1; }
             if (cSkill.effect === 'dodge') cStatus.dodge = cSkill.chance || 0.4;
+            if (cSkill.effect === 'heal') {
+                const heal = applySkillHealAmount(cSkill, DUEL_HP, cRooster);
+                cHP = Math.min(DUEL_HP, cHP + heal);
+                updateHealth('c-hp-bar', -(heal / DUEL_HP) * 100);
+                syncDuelHp();
+                if (cAv) showFloatingText(cAv, `+${heal}`, 'right', false);
+            }
+
+            applyRhythmAfterAction(rhythm, 'cpu', { usedUlt: cUsedUlt, usedBreaker: usedCpuBreaker });
+            renderRhythmUI(rhythm);
 
             await sleep(400); 
             if (cAv) cAv.classList.remove('anim-lunge-down', 'anim-wing-flap', 'arena-magic-cast', 'arena-magic-fire', 'arena-magic-water', 'arena-magic-earth', 'arena-magic-air'); 
             if (pAv) pAv.classList.remove('anim-hit'); 
             await sleep(600);
-        } else {
+            tieCpuRetaliationPending = false;
+            syncDuelKnockout(pHP, cHP, pAv, cAv, pRooster, cRooster);
+        } else if (cStatus.stun) {
             if (cAv) showFloatingText(cAv, i18n.t('btl-stunned'), 'right', false);
             cStatus.stun = false;
+            tieCpuRetaliationPending = false;
             await sleep(1000);
         }
 
@@ -887,8 +1036,9 @@ async function battleSequence() {
             await sleep(800);
         }
 
-        if (pHP <= 0 || cHP <= 0) break;
-        
+        if (!isTieBattle && (pHP <= 0 || cHP <= 0)) break;
+        if (isTieBattle && (pHP <= 0 || cHP <= 0)) break;
+
         if (!pUsedUlt && (pRooster.specialCharge || 0) < 2) pRooster.specialCharge = (pRooster.specialCharge || 0) + 1;
         if (!cUsedUlt && (cRooster.specialCharge || 0) < 2) cRooster.specialCharge = (cRooster.specialCharge || 0) + 1;
         if (pStatus.defTurns > 0 && --pStatus.defTurns <= 0) pStatus.def = 1;
@@ -943,6 +1093,7 @@ async function battleSequence() {
     };
     
     showDetailedResult(winValue, report);
+    hideRhythmUI();
 }
 
 let currentTargetIdx = 0;
@@ -1014,8 +1165,13 @@ async function battleSequence3v3() {
     let cEnergy = cTeam.map(() => 100);
 
     const isTieBattle = pTeam.length === cTeam.length && pTeam.every((r, i) => isIdentical(r, cTeam[i]));
-    pTeam.forEach(r => { r.specialCharge = 2; });
-    cTeam.forEach(r => { r.specialCharge = 2; });
+    pTeam.forEach(r => { r.specialCharge = 2; r.waterSpecialHeals = 0; });
+    cTeam.forEach(r => {
+        r.specialCharge = 2;
+        r.waterSpecialHeals = 0;
+        r.cooldowns = {};
+        r.energy = r.energy_max || 100;
+    });
     const blankStatus = () => ({ shield: 1, def: 1, defTurns: 0, burnQueue: [] });
     const pStat = pTeam.map(blankStatus);
     const cStat = cTeam.map(blankStatus);
@@ -1039,7 +1195,16 @@ async function battleSequence3v3() {
 
     let round = 0;
     while (pHP.some(h => h > 0) && cHP.some(h => h > 0) && round < MAX_ROUNDS) {
-        
+        cTeam.forEach(r => {
+            if (!r.cooldowns) return;
+            for (const skId in r.cooldowns) {
+                if (r.cooldowns[skId] > 0) r.cooldowns[skId]--;
+                if (r.cooldowns[skId] <= 0) delete r.cooldowns[skId];
+            }
+        });
+
+        const cpuAliveAtRoundStart = cHP.map(h => h > 0);
+
         // --- TURNO DA EQUIPE JOGADOR ---
         let pRoundDamageTakenByCPU = cHP.map(() => 0); 
         
@@ -1101,7 +1266,7 @@ async function battleSequence3v3() {
                         pRoundDamageTakenByCPU[idx] += splash.actualDamage;
                         updateSlotHP('c', idx, (cHP[idx] / cMaxHP[idx]) * 100);
                     });
-                    syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
+                    syncTeamKnockouts(pHP, cHP, pTeam, cTeam, { deferCpuKo: isTieBattle });
                 }
                 
                 const isUltimateArenaSkill = skill.type === 'ultimate' && skill.arenaReq === state.currentArena?.id;
@@ -1125,7 +1290,7 @@ async function battleSequence3v3() {
                 if (skill.effect === 'burn') armBurn(cStat[playerTargetIdx], skill);
                 if (skill.effect === 'def') { pStat[pIdx].def = skill.value; pStat[pIdx].defTurns = skill.duration || 1; }
                 if (skill.effect === 'heal') {
-                    const heal = Math.round(pGal.hp_max * (skill.value / 100));
+                    const heal = applySkillHealAmount(skill, pGal.hp_max, pGal);
                     pHP[pIdx] = Math.min(pGal.hp_max, pHP[pIdx] + heal);
                     updateSlotHP('p', pIdx, (pHP[pIdx] / pGal.hp_max) * 100);
                     if (pAv) showFloatingText(pAv, `+${heal}`, 'left', false);
@@ -1139,7 +1304,7 @@ async function battleSequence3v3() {
                     if (advDmg.type === 'weak') floatMsg = `${i18n.t('btl-weak')} ${floatMsg}`;
                     if (cAv) showFloatingText(cAv, floatMsg, 'right', advDmg.type === 'critical');
 
-                    syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
+                    syncTeamKnockouts(pHP, cHP, pTeam, cTeam, { deferCpuKo: isTieBattle });
                 }
             } else if (action.type === 'item') {
                 const item = state.gameData.inventory.items.find(it => it.id === action.id);
@@ -1176,7 +1341,8 @@ async function battleSequence3v3() {
             if (el) el.classList.remove('active-rooster', 'inactive-rooster');
         });
 
-        if (!cHP.some(h => h > 0)) break;
+        const cpuFairRetaliation = isTieBattle && cpuAliveAtRoundStart.some(Boolean);
+        if (!cHP.some(h => h > 0) && !cpuFairRetaliation) break;
 
         await sleep(800); // Delay estratégico entre turnos para fluidez
 
@@ -1184,7 +1350,8 @@ async function battleSequence3v3() {
         let cRoundDamageTakenByPlayer = pHP.map(() => 0);
         
         for (let cIdx = 0; cIdx < cTeam.length; cIdx++) {
-            if (cHP[cIdx] <= 0) continue;
+            const cpuRetaliationSlot = isTieBattle && cpuAliveAtRoundStart[cIdx];
+            if (cHP[cIdx] <= 0 && !cpuRetaliationSlot) continue;
             
             // Verificação de Alvo Dinâmica para CPU
             const alivePlayers = pHP.map((h, idx) => h > 0 ? idx : -1).filter(idx => idx !== -1);
@@ -1211,10 +1378,17 @@ async function battleSequence3v3() {
             const pStatus = { element: pGal.element, color: pGal.color, shield: pStat[cpuTargetIdx].shield, def: pStat[cpuTargetIdx].def };
 
             cEnergy[cIdx] = Math.min(100, cEnergy[cIdx] + 15);
+            cGal.energy = cEnergy[cIdx];
 
-            const cSkills = SkillService.getSkillsForRooster(cGal.element, cGal.level, state.currentArena?.id)
-                .filter(s => s.type !== 'ultimate' || ((cGal.specialCharge || 0) >= 2 && !s.arenaLocked));
-            const cSkill = cSkills[Math.floor(Math.random() * cSkills.length)] || cSkills[0];
+            const cSkill = pickCpuBattleSkill(cGal, state.currentArena?.id, {
+                hpRatio: cHP[cIdx] / cMaxHP[cIdx],
+                opponentHpRatio: pHP[cpuTargetIdx] / pMaxHP[cpuTargetIdx]
+            });
+
+            cEnergy[cIdx] -= cSkill.cost || 0;
+            if (cSkill.cooldown) {
+                cGal.cooldowns[cSkill.id] = cSkill.cooldown;
+            }
 
             const advDmgP = calculateAdvancedDamage(cGal.atk, cSkill.multiplier, 1, state.currentArena, cGal.element, cGal.color, pStatus);
             advDmgP.value = applyProportionalHit(advDmgP.value, pStatus.shield, pStatus.def, pMaxHP[cpuTargetIdx]);
@@ -1227,7 +1401,7 @@ async function battleSequence3v3() {
             if (cSkill.effect === 'burn') armBurn(pStat[cpuTargetIdx], cSkill);
             if (cSkill.effect === 'def') { cStat[cIdx].def = cSkill.value; cStat[cIdx].defTurns = cSkill.duration || 1; }
             if (cSkill.effect === 'heal') {
-                const heal = Math.round((cGal.hp_max || cMaxHP[cIdx]) * (cSkill.value / 100));
+                const heal = applySkillHealAmount(cSkill, cGal.hp_max || cMaxHP[cIdx], cGal);
                 cHP[cIdx] = Math.min(cMaxHP[cIdx], cHP[cIdx] + heal);
                 updateSlotHP('c', cIdx, (cHP[cIdx] / cMaxHP[cIdx]) * 100);
                 if (cAv) showFloatingText(cAv, `+${heal}`, 'right', false);
@@ -1254,7 +1428,7 @@ async function battleSequence3v3() {
             if (advDmgP.type === 'critical') floatMsgP = `${i18n.t('btl-critical')} ${floatMsgP}`;
             if (pAv) showFloatingText(pAv, floatMsgP, 'left', advDmgP.type === 'critical');
 
-            syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
+            syncTeamKnockouts(pHP, cHP, pTeam, cTeam, { deferCpuKo: isTieBattle });
 
             updateTotalHP(pHP, cHP);
             await sleep(400); 
@@ -1268,6 +1442,8 @@ async function battleSequence3v3() {
             const el = document.getElementById(`cpu-avatar-${i}`);
             if (el) el.classList.remove('active-rooster', 'inactive-rooster');
         });
+
+        syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
 
         for (let i = 0; i < pTeam.length; i++) {
             const burn = takeBurn(pStat[i], pMaxHP[i]);
@@ -1388,6 +1564,7 @@ async function saveMatchResult(win, pEl, pCol) {
             xpGained
         });
         state.betLocked = false;
+        state.gameData.pendingBet = null;
         state.gameData.balance = settled.balance;
         state.gameData.wins = settled.wins;
         state.gameData.losses = settled.losses;
@@ -1441,12 +1618,37 @@ async function saveMatchResult(win, pEl, pCol) {
     }
 }
 
+const ELEMENT_BASE_STRENGTH = {
+    fire: 100,
+    earth: 95,
+    water: 90,
+    air: 85
+};
+
+const COLOR_COUNTERS = {
+    red: 'blue',
+    blue: 'green',
+    green: 'yellow',
+    yellow: 'red'
+};
+
+/** Ataque base oficial: elemento (fire 100 / earth 95 / water 90 / air 85) + 2 por nível. */
+function ruleBaseAtk(roosterOrElement, level) {
+    const element = typeof roosterOrElement === 'string'
+        ? roosterOrElement
+        : roosterOrElement?.element;
+    const lvl = Math.max(1, Math.floor(
+        level ?? (typeof roosterOrElement === 'object' ? roosterOrElement?.level : 1) ?? 1
+    ) || 1);
+    return (ELEMENT_BASE_STRENGTH[element] || 100) + (lvl * 2);
+}
+
 function fighterPower(rooster, enemy) {
     const arenaOn = state.currentArena && rooster.element === state.currentArena.bonusElement;
     const colorOn = enemy && COLOR_COUNTERS[rooster.color] === enemy.color;
     const arena = arenaOn ? 1.25 : 1;
     const color = colorOn ? 1.30 : 1;
-    const base = rooster.atk || ELEMENT_BASE_STRENGTH[rooster.element] || 100;
+    const base = ruleBaseAtk(rooster);
     return {
         base,
         arenaOn,
@@ -1482,27 +1684,22 @@ function isIdentical(r1, r2) {
     return r1.element === r2.element && r1.color === r2.color;
 }
 
-const ELEMENT_BASE_STRENGTH = {
-    fire: 100,
-    earth: 95,
-    water: 90,
-    air: 85
-};
-
-const COLOR_COUNTERS = {
-    red: 'blue',
-    blue: 'green',
-    green: 'yellow',
-    yellow: 'red'
-};
-
 const HIT_RATIO = 0.18;
 const HIT_CAP = 0.35;
+/** Rodadas-alvo no 1v1 espelho (mesmo elemento/cor) — ~45–60s com animações atuais. */
+const DUEL_TIE_ROUNDS_TARGET = 8;
+
+function tieDuelHitDamage(maxHp, skillMultiplier = 1) {
+    const base = Math.round(maxHp / DUEL_TIE_ROUNDS_TARGET);
+    const scaled = Math.round(base * (skillMultiplier || 1));
+    const cap = Math.round(maxHp * HIT_CAP);
+    return Math.min(Math.max(1, scaled), cap);
+}
 
 function calculateAdvancedDamage(atk, multiplier, level, arena, element, color, targetStatus) {
     const arenaBonus = arena && arena.bonusElement === element ? 1.25 : 1;
     const colorBonus = COLOR_COUNTERS[color] === targetStatus.color ? 1.30 : 1;
-    const force = (atk || ELEMENT_BASE_STRENGTH[element] || 100) * arenaBonus * colorBonus;
+    const force = ruleBaseAtk(element, level) * arenaBonus * colorBonus;
     const raw = force * (multiplier || 1) * HIT_RATIO;
     return {
         value: Math.max(1, Math.round(raw)),
@@ -1581,6 +1778,7 @@ export function resetGame() {
     AudioEngine.playClick();
     
     state.inBattle = false;
+    hideRhythmUI();
     
     // Hide Results
     document.getElementById('result-overlay').classList.add('hidden');
@@ -1688,16 +1886,22 @@ function showDetailedResult(win, report) {
     const finDiv = document.getElementById('financial-result');
     const finDet = document.getElementById('financial-detail');
     if (finDiv) {
+        const bet = state.currentBet;
+        const prize = Math.floor(bet * PVP.WIN_PAYOUT);
+        const profit = prize - bet;
+        const rake = Math.floor(bet * PVP.RAKE);
         if (win) {
-            finDiv.innerText = `+${Math.floor(state.currentBet * 1.8)} RC`;
+            finDiv.innerText = `+${profit} RC`;
             finDiv.className = "text-3xl font-mono font-bold text-green-400 mt-1";
-            if (finDet) finDet.innerText = `${i18n.t('res-bet')}: ${state.currentBet} | ${i18n.t('res-prize')}: ${Math.floor(state.currentBet * 1.8)} (${i18n.t('res-profit')} +${Math.floor(state.currentBet * 0.8)})`;
+            if (finDet) {
+                finDet.innerText = `${i18n.t('res-bet')}: ${bet} | ${i18n.t('res-prize')}: ${prize} (${i18n.t('res-profit')} +${profit}) | Rake ${rake} (${Math.round(PVP.RAKE * 100)}%)`;
+            }
         } else if (win === false) {
-            finDiv.innerText = `-${state.currentBet} RC`;
+            finDiv.innerText = `-${bet} RC`;
             finDiv.className = "text-3xl font-mono font-bold text-red-400 mt-1";
-            if (finDet) finDet.innerText = i18n.t('res-lost');
+            if (finDet) finDet.innerText = `${i18n.t('res-lost')} Rake ${rake} (${Math.round(PVP.RAKE * 100)}%).`;
         } else {
-            finDiv.innerText = `+${state.currentBet} RC`;
+            finDiv.innerText = `0 RC`;
             finDiv.className = "text-3xl font-mono font-bold text-yellow-400 mt-1";
             if (finDet) finDet.innerText = i18n.t('res-refunded');
         }
