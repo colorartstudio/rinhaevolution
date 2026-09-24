@@ -518,6 +518,15 @@ async function showPlayerSkills(rooster, rhythm = null, opts = {}) {
     
     // Debug Log para rastrear problemas de skill
     console.log(`[Skills] Galo: ${rooster.element} (Lvl ${rooster.level}) | Arena: ${state.currentArena?.id}${attackLocked ? ' | ESCUDO' : ''}`);
+
+    // Escudo ativo: sem ataque — passa a vez na hora (não espera os 15s)
+    if (attackLocked) {
+        if (timerEl) timerEl.classList.add('hidden');
+        panel.classList.add('hidden');
+        document.getElementById('item-menu')?.classList.add('hidden');
+        await sleep(450);
+        return { type: 'pass' };
+    }
     
     // Passamos a arena atual para desbloquear skills especiais
     const skills = SkillService.getSkillsForRooster(rooster.element, rooster.level, state.currentArena?.id);
@@ -532,16 +541,6 @@ async function showPlayerSkills(rooster, rhythm = null, opts = {}) {
         if (timerEl) timerEl.classList.add('hidden');
     };
 
-    const resolvePass = () => {
-        cleanupTimer();
-        if (playerActionResolve) {
-            playerActionResolve({ type: 'pass' });
-            playerActionResolve = null;
-            panel.classList.add('hidden');
-            document.getElementById('item-menu')?.classList.add('hidden');
-        }
-    };
-
     container.innerHTML = '';
     const CHARGE_NEED = 2;
     skills.forEach(skill => {
@@ -549,7 +548,7 @@ async function showPlayerSkills(rooster, rhythm = null, opts = {}) {
         const charging = skill.type === 'ultimate' && charge < CHARGE_NEED;
         const chargeLeft = Math.max(0, CHARGE_NEED - charge);
         const arenaLocked = skill.type === 'ultimate' && skill.arenaLocked;
-        const canAfford = !attackLocked && (rooster.energy || 0) >= skill.cost && !charging && !arenaLocked;
+        const canAfford = (rooster.energy || 0) >= skill.cost && !charging && !arenaLocked;
         const isOnCooldown = rooster.cooldowns && rooster.cooldowns[skill.id] > 0;
         const cooldownTurns = isOnCooldown ? rooster.cooldowns[skill.id] : 0;
         const isRhythm = skill.type === 'rhythm';
@@ -575,13 +574,7 @@ async function showPlayerSkills(rooster, rhythm = null, opts = {}) {
         }
         
         let cooldownOverlay = '';
-        if (attackLocked) {
-            cooldownOverlay = `
-                <div class="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-10">
-                    <span class="text-[9px] font-black text-cyan-300 uppercase">${i18n.t('btl-guard-locked')}</span>
-                </div>
-            `;
-        } else if (arenaLocked) {
+        if (arenaLocked) {
             cooldownOverlay = `
                 <div class="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-10">
                     <span class="text-[9px] font-black text-slate-300 uppercase">Fora da arena</span>
@@ -644,10 +637,6 @@ async function showPlayerSkills(rooster, rhythm = null, opts = {}) {
         
         if (timeLeft <= 0) {
             cleanupTimer();
-            if (attackLocked) {
-                resolvePass();
-                return;
-            }
             // Prefer Quebra-Ritmo se pronto; senão primeira skill pagável
             const defaultSkill = skills.find(s => s.type === 'rhythm')
                 || skills.find(s => s.cost <= (rooster.energy || 0))
@@ -932,7 +921,7 @@ async function battleSequence() {
                     updateEnergy('p-en-bar', pRooster.energy, pRooster.energy_max || 100);
                     if (pAv) showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
                 } else if (item.type === 'guard') {
-                    applyItemGuard(pStatus, item.value || 2);
+                    applyItemGuard(pStatus, item.value || 2, pAv);
                     if (pAv) showFloatingText(pAv, i18n.t('btl-float-guard'), 'left', false);
                 }
                 AudioEngine.playClick();
@@ -1087,8 +1076,8 @@ async function battleSequence() {
         if (!cUsedUlt && (cRooster.specialCharge || 0) < 2) cRooster.specialCharge = (cRooster.specialCharge || 0) + 1;
         if (pStatus.defTurns > 0 && --pStatus.defTurns <= 0) pStatus.def = 1;
         if (cStatus.defTurns > 0 && --cStatus.defTurns <= 0) cStatus.def = 1;
-        tickItemGuard(pStatus);
-        tickItemGuard(cStatus);
+        tickItemGuard(pStatus, pAv);
+        tickItemGuard(cStatus, cAv);
         if (pHP > 0 && cHP > 0) {
             const nextArena = drawDifferentArena(state.currentArena?.id);
             await new Promise(resolve => playArenaRoulette(nextArena, resolve));
@@ -1377,7 +1366,7 @@ async function battleSequence3v3() {
                         updateSlotEnergy('p', pIdx, pEnergy[pIdx]);
                         if (pAv) showFloatingText(pAv, `+${item.value} ⚡`, 'left', false);
                     } else if (item.type === 'guard') {
-                        applyItemGuard(pStat[pIdx], item.value || 2);
+                        applyItemGuard(pStat[pIdx], item.value || 2, pAv);
                         if (pAv) showFloatingText(pAv, i18n.t('btl-float-guard'), 'left', false);
                     }
                     state.save();
@@ -1522,7 +1511,7 @@ async function battleSequence3v3() {
                 updateSlotHP('p', i, (pHP[i] / pMaxHP[i]) * 100);
             }
             if (pStat[i].defTurns > 0 && --pStat[i].defTurns <= 0) pStat[i].def = 1;
-            tickItemGuard(pStat[i]);
+            tickItemGuard(pStat[i], document.getElementById(`player-avatar-${i}`));
         }
         for (let i = 0; i < cTeam.length; i++) {
             const burn = takeBurn(cStat[i], cMaxHP[i]);
@@ -1531,7 +1520,7 @@ async function battleSequence3v3() {
                 updateSlotHP('c', i, (cHP[i] / cMaxHP[i]) * 100);
             }
             if (cStat[i].defTurns > 0 && --cStat[i].defTurns <= 0) cStat[i].def = 1;
-            tickItemGuard(cStat[i]);
+            tickItemGuard(cStat[i], document.getElementById(`cpu-avatar-${i}`));
         }
         syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
 
@@ -1794,18 +1783,23 @@ function isItemGuarding(status) {
     return (status?.itemGuardTurns || 0) > 0;
 }
 
-function applyItemGuard(status, turns = 2) {
+function applyItemGuard(status, turns = 2, avatarEl = null) {
     status.itemGuardTurns = Math.max(0, turns | 0);
+    VFX.setItemGuard(avatarEl, isItemGuarding(status));
 }
 
-function tickItemGuard(status) {
+function tickItemGuard(status, avatarEl = null) {
     if ((status?.itemGuardTurns || 0) > 0) status.itemGuardTurns--;
+    VFX.setItemGuard(avatarEl, isItemGuarding(status));
 }
 
 /** Bloqueia dano de ataque/queimadura enquanto o Escudo de loja estiver ativo. */
 function absorbWithItemGuard(dmg, status, avatarEl, side) {
     if (!isItemGuarding(status)) return Math.max(0, dmg | 0);
-    if (avatarEl && dmg > 0) showFloatingText(avatarEl, i18n.t('btl-float-guard'), side, false);
+    if (avatarEl && dmg > 0) {
+        showFloatingText(avatarEl, i18n.t('btl-float-guard'), side, false);
+        VFX.pulseItemGuard(avatarEl);
+    }
     return 0;
 }
 

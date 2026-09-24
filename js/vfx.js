@@ -101,5 +101,33 @@ export const VFX = {
             case 'earth': this.playEarth(targetElement); break;
             case 'air': this.playAir(targetElement); break;
         }
+    },
+
+    /** Bolha de Escudo (item) — permanece enquanto itemGuardTurns > 0. */
+    setItemGuard: function(avatarEl, active) {
+        if (!avatarEl) return;
+        const existing = avatarEl.querySelector(':scope > .vfx-item-guard');
+        if (!active) {
+            if (existing) existing.remove();
+            return;
+        }
+        const cs = window.getComputedStyle(avatarEl);
+        if (cs.position === 'static') avatarEl.style.position = 'relative';
+        if (cs.overflow === 'hidden') avatarEl.style.overflow = 'visible';
+        if (existing) return;
+        const bubble = document.createElement('div');
+        bubble.className = 'vfx-item-guard';
+        bubble.setAttribute('aria-hidden', 'true');
+        avatarEl.appendChild(bubble);
+    },
+
+    pulseItemGuard: function(avatarEl) {
+        if (!avatarEl) return;
+        const bubble = avatarEl.querySelector(':scope > .vfx-item-guard');
+        if (!bubble) return;
+        bubble.classList.remove('vfx-item-guard--hit');
+        void bubble.offsetWidth;
+        bubble.classList.add('vfx-item-guard--hit');
+        setTimeout(() => bubble.classList.remove('vfx-item-guard--hit'), 360);
     }
 };
