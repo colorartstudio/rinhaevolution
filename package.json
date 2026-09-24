@@ -4,8 +4,7 @@
   "description": "Rinha Evolution - MVP Mobile de Combate de Galos",
   "scripts": {
     "dev": "node server.js",
-    "local": "node server.js",
-    "build": "mkdir public && cp index.html 404.html public/ && cp -r css js public/"
+    "local": "node server.js"
   },
   "keywords": [
     "game",

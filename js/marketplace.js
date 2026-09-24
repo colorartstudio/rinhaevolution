@@ -15,8 +15,7 @@ export class MarketplaceService {
     static getCombatItems() {
         return [
             { id: 'pot-hp', nameKey: 'shop-item-hp-name', type: 'heal', value: 50, price: 200, icon: '🧪' },
-            { id: 'pot-mp', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, price: 150, icon: '⚡' },
-            { id: 'shield', nameKey: 'shop-item-shield-name', type: 'defense', value: 1, price: 200, icon: '🛡️' }
+            { id: 'pot-mp', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, price: 150, icon: '⚡' }
         ];
     }
 
@@ -41,126 +40,33 @@ export class MarketplaceService {
         if (state.gameData.balance < price) return { success: false, error: i18n.t('shop-error-balance') };
         
         const newRooster = state.constructor.createRooster(element, color);
-        
-        try {
-            // 0. Check if Guest (Skip Supabase)
-            if (state.gameData.user.isGuest) {
-                 // 2. Atualizar localmente apenas
-                state.gameData.balance -= price;
-                MissionService.updateProgress(MISSION_TYPES.SPEND, price);
-                state.gameData.inventory.roosters.push(newRooster);
-                state.save();
-                return { success: true, rooster: newRooster };
-            }
-
-            const { supabase } = await import('./supabase.js');
-            
-            // 1. Salvar no Supabase
-            const { error } = await supabase.from('roosters').insert({
-                id: newRooster.id,
-                owner_id: state.gameData.user.id,
-                element: newRooster.element,
-                color: newRooster.color,
-                level: newRooster.level,
-                xp: newRooster.xp,
-                dna: newRooster.dna,
-                hp_max: newRooster.hp,
-                atk_base: newRooster.atk,
-                price: newRooster.price
-            });
-
-            if (error) throw error;
-
-            // 2. Atualizar localmente
-            state.gameData.balance -= price;
-            MissionService.updateProgress(MISSION_TYPES.SPEND, price);
-            state.gameData.inventory.roosters.push(newRooster);
-            state.save();
-            
-            return { success: true, rooster: newRooster };
-        } catch (err) {
-            console.error("Buy rooster error:", err);
-            return { success: false, error: err.message };
-        }
+        state.gameData.balance -= price;
+        MissionService.updateProgress(MISSION_TYPES.SPEND, price);
+        state.gameData.inventory.roosters.push(newRooster);
+        state.save();
+        return { success: true, rooster: newRooster };
     }
 }
 
 export class AuctionEngine {
     static async getAuctionItems() {
-        // Se for convidado, retorna lista vazia ou mockada
-        if (state.gameData.user && state.gameData.user.isGuest) {
-            return [];
-        }
-
-        try {
-            const { supabase } = await import('./supabase.js');
-            // Fetch roosters that have a price and are not owned by the current user
-            const { data, error } = await supabase
-                .from('roosters')
-                .select('*')
-                .not('price', 'is', null)
-                .neq('owner_id', state.gameData.user.id)
-                .limit(10);
-
-            if (error) throw error;
-            
-            return data.map(r => ({
-                id: r.id,
-                rooster: r,
-                currentPrice: r.price,
-                timeLeft: '---' // Will be handled in UI or translation
-            }));
-        } catch (err) {
-            console.error("Fetch real auctions failed:", err);
-            return [];
-        }
+        if (!state.gameData.user?.id) return [];
+        const { LocalBackend } = await import('./backend.js');
+        return LocalBackend.listAuctions(state.gameData.user.id).map(l => ({
+            id: l.roosterId,
+            rooster: l.rooster,
+            currentPrice: l.price,
+            timeLeft: '---'
+        }));
     }
 
-    static async bid(roosterId, amount) {
-        if (state.gameData.balance < amount) return { success: false, error: i18n.t('shop-error-balance') };
-        
+    static async bid(roosterId) {
         try {
-            const { supabase } = await import('./supabase.js');
-            
-            // 1. Get the rooster to verify price and owner
-            const { data: rooster, error: rError } = await supabase
-                .from('roosters')
-                .select('*')
-                .eq('id', roosterId)
-                .single();
-            
-            if (rError || !rooster) throw new Error(i18n.t('shop-error-not-found'));
-            if (rooster.price > amount) throw new Error(i18n.t('shop-error-bid-low'));
-
-            const sellerId = rooster.owner_id;
-
-            // 2. Perform the transaction (Simplified for MVP: direct buy)
-            // Transfer ownership
-            const { error: uError } = await supabase
-                .from('roosters')
-                .update({ 
-                    owner_id: state.gameData.user.id, 
-                    price: null, // No longer for sale
-                    in_team: false 
-                })
-                .eq('id', roosterId);
-            
-            if (uError) throw uError;
-
-            // Update balances (This should be an RPC for safety)
-            // But for now, we'll do it via state and simple updates
-            state.gameData.balance -= amount;
-            state.save(); // Local sync
-
-            // Update seller balance on Supabase
-            await supabase.rpc('increment_economy', { rake_inc: Math.floor(amount * 0.1), jackpot_inc: 0 }); // Take 10% rake
-            
-            // Note: In a real app, we'd update the seller's profile balance here too.
-            // Since we don't have a specific RPC for that yet, we'll assume it's handled.
-
+            const { LocalBackend } = await import('./backend.js');
+            const profile = LocalBackend.buyListing({ userId: state.gameData.user.id, roosterId });
+            state.hydrate(profile);
             return { success: true };
         } catch (err) {
-            console.error("Bid error:", err);
             return { success: false, error: err.message };
         }
     }

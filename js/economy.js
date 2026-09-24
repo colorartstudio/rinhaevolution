@@ -4,6 +4,8 @@ export const ECONOMY_CONFIG = {
     RAKE_PERCENT: 0.10, // 10%
     JACKPOT_PERCENT_OF_RAKE: 0.10, // 10% of the 10% rake goes to jackpot
     CONVERSION_RATE: 100, // $1 = 100 RC
+    WITHDRAW_FEE: 0.05,
+    SWAP_FEE: 0,
     REFERRAL_LEVELS: [0.05, 0.02, 0.01, 0.01, 0.01] // 5%, 2%, 1%, 1%, 1%
 };
 

@@ -7,7 +7,7 @@ Este projeto é um jogo de batalha baseado em turnos (MVP) desenvolvido em HTML,
 Como o projeto não possui dependências de build (Node.js, Webpack, etc.), você pode executá-lo de forma muito simples:
 
 ### Opção 1: Abrir diretamente
-Basta abrir o arquivo `rinha.html` no seu navegador favorito.
+Basta abrir o arquivo `index.html` no seu navegador favorito.
 
 ### Opção 2: Servidor Local (Recomendado)
 Para evitar bloqueios de CORS ou comportamentos inesperados, use um servidor estático simples.
@@ -53,8 +53,8 @@ O projeto já está configurado para deploy na Vercel através do arquivo `verce
 
 ## 🛠️ Estrutura
 
-- `rinha.html`: Arquivo único contendo toda a lógica, estilos e marcação.
-- `vercel.json`: Configuração de rotas para servir `rinha.html` na raiz (`/`).
+- `index.html`: Arquivo único contendo toda a lógica, estilos e marcação.
+- `vercel.json`: Configuração de rotas e comportamento SPA.
 
 ## ⚠️ Notas Técnicas
 

@@ -1,6 +1,6 @@
-export const STORAGE_KEY = 'rinha_evo_v3_eco';
-const isBrowser = typeof window !== 'undefined';
-export const DISABLE_CLOUD_SYNC = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+import { LocalBackend, blankProfile } from './backend.js';
+
+export const STORAGE_KEY = 'rinha_db_v1';
 
 export const ELEMENTS = {
     fire: { id: 'fire', name: 'Vulcan', nameKey: 'el-fire', base: 100, icon: '🔥', tailColor1: '#ff4500', tailColor2: '#ffcc00', desc: 'Atk Max' },
@@ -36,19 +36,15 @@ class State {
     constructor() {
         this.gameData = { 
             version: '2.0.0',
-            user: null, // { name, email, id }
+            user: null,
             matches: [], 
             wins: 0, 
             losses: 0, 
-            balance: 1000, 
+            balance: 0, 
             settings: { muteSFX: false, muteMusic: false, lang: 'pt-BR' },
             inventory: {
-                roosters: [], // { id, element, color, level, xp, dna, price }
-                items: [
-                    { id: 'pot-hp', name: 'Poção de HP', nameKey: 'shop-item-hp-name', type: 'heal', value: 50, count: 2, price: 200 },
-                    { id: 'pot-mp', name: 'Vitamina de Energia', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, count: 2, price: 150 },
-                    { id: 'shield', name: 'Escudo', nameKey: 'shop-item-shield-name', type: 'defense', value: 1, count: 0, price: 200 }
-                ]
+                roosters: [],
+                items: []
             },
             teams: {
                 active: [] // Array of rooster IDs
@@ -77,167 +73,43 @@ class State {
         this.gameMode = '1v1';
         this.currentArena = null;
         this.currentBet = 100;
-        this.battleResult = null; // Armazena o resultado vindo da RPC do Supabase
+        this.battleResult = null;
+        this.betLocked = false;
         this.load();
     }
 
     load() {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            // Basic migration/merge
-            this.gameData = { ...this.gameData, ...parsed };
+        const userId = LocalBackend.getSessionUserId();
+        if (!userId) return;
+        const profile = LocalBackend.getProfile(userId);
+        if (!profile) return;
+        this.hydrate(profile);
+    }
 
-            // Migration: Audio Settings (mute -> muteSFX/muteMusic)
-            if (parsed.settings) {
-                if (parsed.settings.mute !== undefined && parsed.settings.muteSFX === undefined) {
-                    this.gameData.settings.muteSFX = parsed.settings.mute;
-                    this.gameData.settings.muteMusic = parsed.settings.mute;
-                    delete this.gameData.settings.mute;
-                }
-            }
-            
-            // Ensure nested objects exist
-            if (!this.gameData.inventory) this.gameData.inventory = { roosters: [], items: [] };
-            if (!this.gameData.teams) this.gameData.teams = { active: [] };
-            if (!this.gameData.referral) this.gameData.referral = { code: '', referrer: null, totalEarnings: 0, networkCount: [0,0,0,0,0] };
-            if (!this.gameData.economy) this.gameData.economy = { totalRake: 0, jackpotPool: 0 };
-
-            // Migration: Ensure all roosters have energy fields
-            if (this.gameData.inventory.roosters) {
-                this.gameData.inventory.roosters.forEach(r => {
-                    if (r.energy === undefined) r.energy = 100;
-                    if (r.energy_max === undefined) r.energy_max = 100;
-                });
-            }
-        }
+    hydrate(profile) {
+        this.gameData = { ...blankProfile(profile.user), ...profile };
+        if (!this.gameData.inventory) this.gameData.inventory = { roosters: [], items: [] };
+        if (!this.gameData.inventory.items) this.gameData.inventory.items = [];
+        if (!this.gameData.teams) this.gameData.teams = { active: [] };
+        if (!this.gameData.referral) this.gameData.referral = { code: '', referrer: null, totalEarnings: 0, networkCount: [0, 0, 0, 0, 0] };
+        if (!this.gameData.wallet) this.gameData.wallet = { USDT_BSC: 0, USDT_ETH: 0, USDC_BSC: 0, USDC_ETH: 0 };
+        (this.gameData.inventory.roosters || []).forEach(r => {
+            if (r.energy === undefined) r.energy = 100;
+            if (r.energy_max === undefined) r.energy_max = 100;
+        });
     }
 
     async save() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.gameData));
-        
-        if (DISABLE_CLOUD_SYNC) {
-            return;
-        }
-        
-        // Sincronização opcional com Supabase se o usuário estiver logado
         if (this.gameData.user && this.gameData.user.id) {
-            try {
-                const { supabase } = await import('./supabase.js');
-                await supabase.from('profiles').update({
-                    balance: this.gameData.balance,
-                    wins: this.gameData.wins,
-                    losses: this.gameData.losses,
-                    settings: this.gameData.settings,
-                    inventory_items: this.gameData.inventory.items // <-- ADICIONADO
-                }).eq('id', this.gameData.user.id);
-            } catch (err) {
-                console.warn("Cloud sync failed, will retry later:", err);
-            }
+            LocalBackend.saveProfile(this.gameData);
         }
     }
 
     async syncAll() {
-        if (!this.gameData.user || !this.gameData.user.id) return;
-        
-        if (DISABLE_CLOUD_SYNC) {
-            console.log("Sincronização com Supabase desativada (modo desenvolvimento). Usando apenas dados locais.");
-            return true;
-        }
-        
-        console.log("Iniciando sincronização total com Supabase...");
-        
-        // Timeout de segurança para evitar travamento eterno (Aumentado para 15s para conexões lentas)
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Timeout na sincronização")), 15000)
-        );
-
-        try {
-            const syncPromise = (async () => {
-                const { supabase } = await import('./supabase.js');
-                
-                // 1. Buscar Profile
-                console.log("Buscando Profile...");
-                try {
-                    const { data: profile, error: pError } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', this.gameData.user.id)
-                        .single();
-                    
-                    if (pError) throw pError;
-                    if (profile) {
-                        this.gameData.balance = profile.balance;
-                        this.gameData.wins = profile.wins;
-                        this.gameData.losses = profile.losses;
-                        this.gameData.settings = profile.settings || this.gameData.settings;
-                        this.gameData.inventory.items = profile.inventory_items || [];
-                        if (profile.referral_code) this.gameData.referral.code = profile.referral_code;
-                        console.log("Profile sincronizado.");
-                    }
-                } catch (e) {
-                    console.warn("Erro ao sincronizar profile (tabela pode não existir ou conexão lenta):", e.message);
-                }
-
-                // 2. Buscar Galos (Inventory)
-                console.log("Buscando Galos...");
-                try {
-                    const { data: roosters, error: rError } = await supabase
-                        .from('roosters')
-                        .select('*')
-                        .eq('owner_id', this.gameData.user.id);
-                    
-                    if (rError) throw rError;
-                    if (roosters) {
-                        const mappedRoosters = roosters.map(r => ({
-                            ...r,
-                            atk: r.atk_base || r.atk || (ELEMENTS[r.element].base + (r.level * 2)),
-                            hp: r.hp_current !== undefined ? r.hp_current : (r.hp || r.hp_max)
-                        }));
-                        this.gameData.inventory.roosters = mappedRoosters;
-                        this.gameData.teams.active = mappedRoosters
-                            .filter(r => r.in_team)
-                            .map(r => r.id);
-                        console.log(`${roosters.length} galos sincronizados.`);
-                    }
-                } catch (e) {
-                    console.warn("Erro ao sincronizar galos:", e.message);
-                }
-
-                // 3. Buscar Estatísticas Globais de Economia
-                console.log("Buscando Economia...");
-                try {
-                    const { data: economy, error: eError } = await supabase
-                        .from('economy_stats')
-                        .select('*')
-                        .eq('id', 1)
-                        .single();
-                    
-                    if (eError) throw eError;
-                    if (economy) {
-                        this.gameData.economy.totalRake = parseInt(economy.total_rake);
-                        this.gameData.economy.jackpotPool = parseInt(economy.jackpot_pool);
-                        console.log("Economia global sincronizada.");
-                    }
-                } catch (e) {
-                    console.warn("Erro ao sincronizar economia global:", e.message);
-                }
-
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.gameData));
-                return true;
-            })();
-
-            // Corrida entre o sync e o timeout
-            await Promise.race([syncPromise, timeoutPromise]);
-            console.log("Sincronização concluída com sucesso.");
-            return true;
-        } catch (err) {
-            console.warn("Falha na sincronização (Timeout ou Erro Crítico) - Usando dados locais:", err.message);
-            if (typeof window !== 'undefined' && window.dispatchEvent) {
-                window.dispatchEvent(new CustomEvent('rinha-offline-mode', { detail: { reason: err.message } }));
-            }
-            return true; 
-        }
+        if (!this.gameData.user?.id) return false;
+        const profile = LocalBackend.getProfile(this.gameData.user.id);
+        if (profile) this.hydrate(profile);
+        return true;
     }
 
     static createRooster(element, color, level = 1) {
@@ -283,17 +155,12 @@ class State {
     }
 
     reset() {
-        const user = this.gameData.user;
-        const lang = this.gameData.settings.lang;
-        this.gameData = { 
-            user,
-            matches: [], 
-            wins: 0, 
-            losses: 0, 
-            balance: 1000, 
-            settings: { muteSFX: false, muteMusic: false, lang } 
-        };
-        this.save();
+        if (this.gameData.user?.id) {
+            const fresh = LocalBackend.resetProfile(this.gameData.user.id);
+            if (fresh) this.hydrate(fresh);
+            return;
+        }
+        this.gameData = blankProfile(null);
     }
 }
 

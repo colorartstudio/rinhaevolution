@@ -52,41 +52,9 @@ export class BreedingService {
             skin: skin
         };
 
-        // 3. Persistência de Dados (Engenharia de Ponta)
-        if (state.gameData.user && state.gameData.user.id) {
-            try {
-                const { supabase } = await import('./supabase.js');
-                
-                // Deletar pais no Supabase
-                await supabase.from('roosters').delete().in('id', [r1.id, r2.id]);
-                
-                // Inserir novo galo no Supabase (Incluindo ID explícito)
-                const { data, error } = await supabase.from('roosters').insert({
-                    id: newRooster.id,
-                    owner_id: state.gameData.user.id,
-                    element: newRooster.element,
-                    color: newRooster.color,
-                    level: newRooster.level,
-                    xp: newRooster.xp,
-                    dna: JSON.stringify(newRooster.dna), // Stringify para coluna TEXT
-                    atk_base: newRooster.atk,
-                    hp_max: newRooster.hp_max,
-                    in_team: false
-                }).select().single();
-
-                if (error) throw error;
-                if (data) newRooster.id = data.id; // Usar o ID real do banco
-                
-            } catch (err) {
-                console.error("Erro na persistência da fusão:", err);
-                // Fallback: Manter apenas local se o banco falhar (não ideal, mas evita travamento)
-            }
-        }
-
-        // 4. Atualizar Estado Local
         state.gameData.inventory.roosters = state.gameData.inventory.roosters.filter(r => r.id !== r1.id && r.id !== r2.id);
         state.gameData.inventory.roosters.push(newRooster);
-        
+        state.gameData.teams.active = state.gameData.teams.active.filter(id => id !== r1.id && id !== r2.id);
         await state.save();
 
         return { success: true, rooster: newRooster };

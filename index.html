@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/vfx.css">
 </head>
@@ -145,7 +144,7 @@
                 
                 <button onclick="window.app.toggleWalletModal()" class="flex items-center gap-2 bg-slate-900/80 border border-yellow-500/20 rounded-2xl px-4 py-2 hover:bg-slate-800 transition-all shadow-lg active:scale-95">
                     <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span id="header-balance" class="font-mono font-black text-yellow-400" style="font-size: var(--font-sm);">1000 RC</span>
+                    <span id="header-balance" class="font-mono font-black text-yellow-400" style="font-size: var(--font-sm);">0 RC</span>
                     <i class="fas fa-plus-circle text-slate-600 text-xs"></i>
                 </button>
             </div>
@@ -464,6 +463,7 @@
                 </div>
             </div>
         </div>
+        <div id="matchup-bar" class="relative z-20 mx-4 mt-2 grid grid-cols-2 gap-2 text-[10px]"></div>
 
         <div id="battle-stage" class="relative z-10 flex-1 flex flex-col justify-between items-center pb-24 w-full max-w-2xl mx-auto opacity-0 transition-opacity duration-1000">
             <!-- TIME CPU (AXIE STYLE) -->
@@ -693,44 +693,63 @@
     <div id="wallet-modal" class="fixed inset-0 z-[160] modal-base modal-hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
         <div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-700 p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button onclick="window.app.toggleWalletModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2"><i class="fas fa-times"></i></button>
-            <h2 class="text-xl font-display text-white uppercase text-center mb-6" data-i18n="mod-wallet-title">Carteira Digital</h2>
-            
-            <div class="bg-slate-800 p-4 rounded-xl mb-6 text-center border border-slate-700">
-                <div class="text-xs text-slate-400 uppercase font-bold" data-i18n="mod-wallet-balance">Saldo Disponível</div>
-                <div class="text-3xl font-mono font-bold text-yellow-400 coin-icon mt-2" id="wallet-balance-display">1000 RC</div>
-                <div id="wallet-usd-estimate" class="text-[10px] text-slate-500 mt-1 font-bold">≈ $10.00 USD</div>
+            <h2 class="text-xl font-display text-white uppercase text-center mb-4" data-i18n="mod-wallet-title">Carteira</h2>
+
+            <div class="bg-slate-800 p-4 rounded-xl mb-4 text-center border border-slate-700">
+                <div class="text-xs text-slate-400 uppercase font-bold" data-i18n="mod-wallet-balance">Saldo de jogo</div>
+                <div class="text-3xl font-mono font-bold text-yellow-400 mt-1" id="wallet-balance-display">0 RC</div>
+                <div id="wallet-usd-estimate" class="text-[10px] text-slate-500 mt-1 font-bold">≈ $0.00 USD</div>
+                <div id="wallet-stables" class="grid grid-cols-2 gap-2 mt-3 text-left"></div>
             </div>
 
-            <div class="mb-6">
-                <h3 class="text-[10px] text-slate-500 font-black uppercase mb-3 tracking-widest" data-i18n="mod-wallet-network">Rede para Depósito</h3>
-                <div class="grid grid-cols-3 gap-2 mb-4">
-                    <button onclick="window.app.setWalletNetwork('arbitrum')" id="net-arbitrum" class="network-btn bg-slate-800 border border-yellow-500/50 rounded-lg py-2 text-[9px] font-bold transition-all leading-tight">USDC<br>Arbitrum</button>
-                    <button onclick="window.app.setWalletNetwork('polygon')" id="net-polygon" class="network-btn bg-slate-800 border border-slate-700 rounded-lg py-2 text-[9px] font-bold transition-all leading-tight">USDT<br>Polygon</button>
-                    <button onclick="window.app.setWalletNetwork('bep20')" id="net-bep20" class="network-btn bg-slate-800 border border-slate-700 rounded-lg py-2 text-[9px] font-bold transition-all leading-tight">USDT<br>BEP-20</button>
+            <div class="grid grid-cols-3 gap-2 mb-4">
+                <button type="button" id="wallet-tab-deposit" onclick="window.app.setWalletTab('deposit')" class="py-2 rounded-lg text-[10px] font-black uppercase bg-yellow-500 text-black" data-i18n="mod-wallet-deposit">Depositar</button>
+                <button type="button" id="wallet-tab-withdraw" onclick="window.app.setWalletTab('withdraw')" class="py-2 rounded-lg text-[10px] font-black uppercase bg-slate-800 text-slate-300" data-i18n="mod-wallet-withdraw">Sacar</button>
+                <button type="button" id="wallet-tab-swap" onclick="window.app.setWalletTab('swap')" class="py-2 rounded-lg text-[10px] font-black uppercase bg-slate-800 text-slate-300" data-i18n="mod-wallet-swap">Swap</button>
+            </div>
+
+            <div id="wallet-panel-deposit">
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <button type="button" id="asset-USDT" onclick="window.app.setWalletAsset('USDT')" class="py-2 rounded-lg text-[10px] font-black border border-yellow-500/50 bg-slate-800">USDT</button>
+                    <button type="button" id="asset-USDC" onclick="window.app.setWalletAsset('USDC')" class="py-2 rounded-lg text-[10px] font-black border border-slate-700 bg-slate-800">USDC</button>
                 </div>
-
-                <div id="deposit-address-container" class="bg-black/50 p-4 rounded-xl border border-slate-800 text-center">
-                    <div id="wallet-qrcode" class="bg-white p-2 rounded-lg inline-block mb-3"></div>
-                    <div class="text-[10px] text-slate-500 mb-1 uppercase font-bold" data-i18n="mod-wallet-addr-label">Endereço</div>
-                    <div id="wallet-address" class="text-[9px] font-mono text-slate-300 break-all bg-slate-900 p-2 rounded border border-slate-800 leading-relaxed">0x...</div>
-                    <button onclick="window.app.copyWalletAddress()" class="mt-2 text-[10px] text-yellow-500 font-bold uppercase hover:text-yellow-400 transition-colors" data-i18n="mod-wallet-copy-btn"><i class="fas fa-copy mr-1"></i>Copiar</button>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <button type="button" id="net-BSC" onclick="window.app.setWalletNetwork('BSC')" class="network-btn py-2 rounded-lg text-[10px] font-black border border-yellow-500/50 bg-slate-800">BSC</button>
+                    <button type="button" id="net-ETH" onclick="window.app.setWalletNetwork('ETH')" class="network-btn py-2 rounded-lg text-[10px] font-black border border-slate-700 bg-slate-800">ETH</button>
                 </div>
+                <div class="bg-black/50 p-3 rounded-xl border border-slate-800 text-center mb-3">
+                    <div id="wallet-qrcode" class="bg-white p-2 rounded-lg inline-block mb-2"></div>
+                    <div id="wallet-address" class="text-[9px] font-mono text-slate-300 break-all bg-slate-900 p-2 rounded border border-slate-800">0x...</div>
+                    <button type="button" onclick="window.app.copyWalletAddress()" class="mt-2 text-[10px] text-yellow-500 font-bold uppercase" data-i18n="mod-wallet-copy-btn">Copiar</button>
+                </div>
+                <input id="deposit-amount" type="number" min="0" step="0.01" placeholder="Valor em USD" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-white text-sm mb-3" data-i18n-placeholder="mod-wallet-amount">
+                <button type="button" onclick="window.app.simDeposit()" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold text-xs uppercase" data-i18n="mod-wallet-sim-btn">Simular depósito</button>
+                <p class="text-[10px] text-slate-500 mt-2" data-i18n="mod-wallet-info">Somente USDT e USDC nas redes BSC e ETH. Simulação local.</p>
             </div>
 
-            <div class="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-xl mb-6">
-                <p class="text-[10px] text-yellow-200 leading-tight" data-i18n="mod-wallet-info">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    <b>Conversão:</b> $1.00 USD = 100 RC. Crédito após 1 confirmação.
-                </p>
+            <div id="wallet-panel-withdraw" class="hidden">
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <button type="button" id="w-asset-USDT" onclick="window.app.setWalletAsset('USDT')" class="py-2 rounded-lg text-[10px] font-black border border-slate-700 bg-slate-800">USDT</button>
+                    <button type="button" id="w-asset-USDC" onclick="window.app.setWalletAsset('USDC')" class="py-2 rounded-lg text-[10px] font-black border border-slate-700 bg-slate-800">USDC</button>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <button type="button" id="w-net-BSC" onclick="window.app.setWalletNetwork('BSC')" class="py-2 rounded-lg text-[10px] font-black border border-slate-700 bg-slate-800">BSC</button>
+                    <button type="button" id="w-net-ETH" onclick="window.app.setWalletNetwork('ETH')" class="py-2 rounded-lg text-[10px] font-black border border-slate-700 bg-slate-800">ETH</button>
+                </div>
+                <input id="withdraw-amount" type="number" min="0" step="0.01" placeholder="Valor" oninput="window.app.refreshWithdrawFee()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-white text-sm mb-2" data-i18n-placeholder="mod-wallet-amount">
+                <input id="withdraw-address" type="text" placeholder="Endereço de destino" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-white text-sm mb-2" data-i18n-placeholder="mod-wallet-dest">
+                <p id="withdraw-fee-preview" class="text-[10px] text-yellow-200 mb-3">Taxa de saque: 5%</p>
+                <button type="button" onclick="window.app.simWithdraw()" class="w-full bg-slate-700 text-white py-3 rounded-xl font-bold text-xs uppercase" data-i18n="mod-wallet-withdraw-btn">Sacar</button>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <button onclick="window.app.simDeposit()" class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold transition-colors text-xs uppercase tracking-widest" data-i18n="mod-wallet-sim-btn">
-                    <i class="fas fa-bolt mr-1"></i>Simular
-                </button>
-                <button onclick="alert(window.app.t('sys-withdraw-soon'))" class="bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-colors text-xs uppercase tracking-widest" data-i18n="mod-wallet-withdraw-btn">
-                    <i class="fas fa-arrow-up mr-1"></i>Sacar
-                </button>
+            <div id="wallet-panel-swap" class="hidden">
+                <label class="text-[10px] text-slate-500 font-bold uppercase" data-i18n="mod-wallet-from">De</label>
+                <select id="swap-from" onchange="window.app.refreshSwapQuote()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-white text-sm mb-2"></select>
+                <label class="text-[10px] text-slate-500 font-bold uppercase" data-i18n="mod-wallet-to">Para</label>
+                <select id="swap-to" onchange="window.app.refreshSwapQuote()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-white text-sm mb-2"></select>
+                <input id="swap-amount" type="number" min="0" step="0.01" placeholder="Valor" oninput="window.app.refreshSwapQuote()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 text-white text-sm mb-2" data-i18n-placeholder="mod-wallet-amount">
+                <p id="swap-quote" class="text-[10px] text-green-300 mb-3">Taxa de troca: 0%</p>
+                <button type="button" onclick="window.app.simSwap()" class="w-full bg-yellow-500 text-black py-3 rounded-xl font-black text-xs uppercase" data-i18n="mod-wallet-swap-btn">Trocar</button>
             </div>
         </div>
     </div>
@@ -816,6 +835,10 @@
                 <button onclick="window.app.showScreen('logs')" class="menu-item group">
                     <i class="fas fa-history group-active:text-yellow-500"></i>
                     <span data-i18n="mod-menu-logs">Logs</span>
+                </button>
+                <button onclick="window.app.openWalletFromMenu()" class="menu-item group">
+                    <i class="fas fa-wallet group-active:text-yellow-500"></i>
+                    <span data-i18n="mod-menu-wallet">Carteira</span>
                 </button>
                 <button onclick="window.app.toggleMenu()" class="menu-item border-red-900/30 bg-red-900/10 active:bg-red-900/20">
                     <i class="fas fa-times text-red-500"></i>
@@ -926,6 +949,17 @@
             setTarget,
             selectActiveRooster
         } from './js/game.js';
+        import { 
+            ensureWallet,
+            depositAddress,
+            simulateDeposit,
+            simulateWithdraw,
+            simulateSwap,
+            swapQuote,
+            label,
+            WALLET_ASSETS,
+            WALLET_NETWORKS
+        } from './js/wallet.js';
 
         // Expose necessary functions to window for onclick handlers
         Object.assign(window.app, {
@@ -1058,33 +1092,105 @@
                 }
             },
             logout: () => Auth.logout(),
-            setWalletNetwork: (net) => {
-                const addresses = {
-                    arbitrum: '0xArbi' + Math.random().toString(16).slice(2, 10),
-                    polygon: '0xPoly' + Math.random().toString(16).slice(2, 10),
-                    bep20: '0xBEP2' + Math.random().toString(16).slice(2, 10)
-                };
-                document.querySelectorAll('.network-btn').forEach(b => b.classList.replace('border-yellow-500/50', 'border-slate-700'));
-                document.getElementById(`net-${net}`).classList.replace('border-slate-700', 'border-yellow-500/50');
-                
-                const addr = addresses[net];
-                document.getElementById('wallet-address').innerText = addr;
-                
-                const container = document.getElementById('wallet-qrcode');
-                container.innerHTML = '';
-                new QRCode(container, { text: addr, width: 100, height: 100 });
+            walletAsset: 'USDT',
+            walletNetwork: 'BSC',
+            openWalletFromMenu: () => {
+                const menu = document.getElementById('menu-modal');
+                if (menu && !menu.classList.contains('modal-hidden')) toggleModal('menu-modal');
+                window.app.toggleWalletModal();
+            },
+            paintWalletSelection: () => {
+                const asset = window.app.walletAsset;
+                const net = window.app.walletNetwork;
+                ['USDT', 'USDC'].forEach(a => {
+                    ['asset-', 'w-asset-'].forEach(prefix => {
+                        const el = document.getElementById(prefix + a);
+                        if (!el) return;
+                        el.classList.toggle('border-yellow-500/50', a === asset);
+                        el.classList.toggle('border-slate-700', a !== asset);
+                    });
+                });
+                ['BSC', 'ETH'].forEach(n => {
+                    ['net-', 'w-net-'].forEach(prefix => {
+                        const el = document.getElementById(prefix + n);
+                        if (!el) return;
+                        el.classList.toggle('border-yellow-500/50', n === net);
+                        el.classList.toggle('border-slate-700', n !== net);
+                    });
+                });
+            },
+            setWalletAsset: (asset) => {
+                window.app.walletAsset = asset;
+                window.app.paintWalletSelection();
+                window.app.renderDepositAddress();
                 AudioEngine.playClick();
+            },
+            setWalletNetwork: (net) => {
+                window.app.walletNetwork = net;
+                window.app.paintWalletSelection();
+                window.app.renderDepositAddress();
+                AudioEngine.playClick();
+            },
+            renderDepositAddress: () => {
+                const addr = depositAddress(state.gameData.user?.id, window.app.walletAsset, window.app.walletNetwork);
+                const box = document.getElementById('wallet-address');
+                if (box) box.innerText = addr;
+                const container = document.getElementById('wallet-qrcode');
+                if (container && window.QRCode) {
+                    container.innerHTML = '';
+                    new QRCode(container, { text: addr, width: 96, height: 96 });
+                }
+            },
+            fillSwapSelects: () => {
+                const codes = ['RC', ...WALLET_ASSETS.flatMap(a => WALLET_NETWORKS.map(n => `${a}_${n}`))];
+                ['swap-from', 'swap-to'].forEach((id, idx) => {
+                    const sel = document.getElementById(id);
+                    if (!sel || sel.options.length) return;
+                    codes.forEach(code => {
+                        const opt = document.createElement('option');
+                        opt.value = code;
+                        opt.textContent = label(code);
+                        sel.appendChild(opt);
+                    });
+                    sel.value = idx === 0 ? 'USDT_BSC' : 'RC';
+                });
+            },
+            setWalletTab: (tab) => {
+                ['deposit', 'withdraw', 'swap'].forEach(name => {
+                    document.getElementById(`wallet-panel-${name}`)?.classList.toggle('hidden', name !== tab);
+                    const btn = document.getElementById(`wallet-tab-${name}`);
+                    if (!btn) return;
+                    btn.classList.toggle('bg-yellow-500', name === tab);
+                    btn.classList.toggle('text-black', name === tab);
+                    btn.classList.toggle('bg-slate-800', name !== tab);
+                    btn.classList.toggle('text-slate-300', name !== tab);
+                });
+                if (tab === 'deposit') window.app.renderDepositAddress();
+                if (tab === 'swap') {
+                    window.app.fillSwapSelects();
+                    window.app.refreshSwapQuote();
+                }
+            },
+            refreshWithdrawFee: () => updateBalanceUI(),
+            refreshSwapQuote: () => {
+                const from = document.getElementById('swap-from')?.value;
+                const to = document.getElementById('swap-to')?.value;
+                const amount = document.getElementById('swap-amount')?.value;
+                const received = swapQuote(from, to, amount);
+                const el = document.getElementById('swap-quote');
+                if (el) el.innerText = i18n.t('mod-wallet-swap-zero', { amount: received });
             },
             copyWalletAddress: () => {
                 const addr = document.getElementById('wallet-address').innerText;
                 navigator.clipboard.writeText(addr).then(() => alert(i18n.t('mod-share-copied')));
             },
-            toggleWalletModal: () => { 
-                AudioEngine.playClick(); 
-                toggleModal('wallet-modal'); 
-                if (!document.getElementById('wallet-modal').classList.contains('modal-hidden')) {
-                    window.app.setWalletNetwork('arbitrum');
-                }
+            toggleWalletModal: () => {
+                AudioEngine.playClick();
+                ensureWallet();
+                toggleModal('wallet-modal');
+                window.app.paintWalletSelection();
+                window.app.setWalletTab('deposit');
+                updateBalanceUI();
             },
             toggleMenu: () => {
                 AudioEngine.playClick();
@@ -1111,13 +1217,47 @@
                 }
             },
             simDeposit: () => {
-                const usdAmount = 5;
-                const rcAmount = EconomyService.usdToRC(usdAmount);
-                state.gameData.balance += rcAmount;
-                state.save();
-                alert(i18n.t('sys-deposit-success'));
+                const amount = document.getElementById('deposit-amount')?.value;
+                const res = simulateDeposit(window.app.walletAsset, window.app.walletNetwork, amount);
+                if (!res.ok) {
+                    alert(i18n.t('sys-wallet-error'));
+                    return;
+                }
+                alert(i18n.t('sys-deposit-ok', {
+                    amount,
+                    asset: window.app.walletAsset,
+                    network: window.app.walletNetwork
+                }));
                 updateBalanceUI();
-                toggleModal('wallet-modal');
+            },
+            simWithdraw: () => {
+                const amount = document.getElementById('withdraw-amount')?.value;
+                const to = document.getElementById('withdraw-address')?.value;
+                const res = simulateWithdraw(window.app.walletAsset, window.app.walletNetwork, amount, to);
+                if (!res.ok) {
+                    alert(i18n.t('sys-wallet-error'));
+                    return;
+                }
+                alert(i18n.t('sys-withdraw-ok', {
+                    net: res.net,
+                    fee: res.fee,
+                    asset: window.app.walletAsset,
+                    network: window.app.walletNetwork
+                }));
+                updateBalanceUI();
+            },
+            simSwap: () => {
+                const from = document.getElementById('swap-from')?.value;
+                const to = document.getElementById('swap-to')?.value;
+                const amount = document.getElementById('swap-amount')?.value;
+                const res = simulateSwap(from, to, amount);
+                if (!res.ok) {
+                    alert(i18n.t('sys-wallet-error'));
+                    return;
+                }
+                alert(i18n.t('sys-swap-ok', { amount: res.received }));
+                updateBalanceUI();
+                window.app.refreshSwapQuote();
             },
             showScreen: (screenId) => {
                 const screens = ['selection', 'shop', 'inventory', 'missions', 'tournament', 'referral', 'leaderboard', 'battle', 'logs', 'breeding'];
@@ -1342,18 +1482,17 @@
                 const price = prompt(i18n.t('inv-sell-prompt'));
                 if (price && !isNaN(price)) {
                     try {
-                        const { supabase } = await import('./js/supabase.js');
-                        const { error } = await supabase
-                            .from('roosters')
-                            .update({ price: parseInt(price), in_team: false })
-                            .eq('id', id);
-                        
-                        if (error) throw error;
-                        
-                        alert(i18n.t('inv-sell-success'));
-                        // Remove from active team if it was there
-                        TeamService.removeFromTeam(id);
-                        updateInventoryUI();
+                    const { LocalBackend } = await import('./js/backend.js');
+                    const rooster = state.gameData.inventory.roosters.find(r => r.id === id);
+                    if (!rooster) return;
+                    const profile = LocalBackend.listRooster({
+                        userId: state.gameData.user.id,
+                        rooster,
+                        price: parseInt(price, 10)
+                    });
+                    state.hydrate(profile);
+                    alert(i18n.t('inv-sell-success'));
+                    updateInventoryUI();
                     } catch (err) {
                         alert("Error: " + err.message);
                     }

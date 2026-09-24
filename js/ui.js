@@ -36,6 +36,31 @@ export function updateBalanceUI() {
     if (headerBal) headerBal.innerText = balanceText;
     if (walletBal) walletBal.innerText = balanceText;
     if (shopBal) shopBal.innerText = balanceText;
+    const usd = (state.gameData.balance / 100).toFixed(2);
+    const usdEl = document.getElementById('wallet-usd-estimate');
+    if (usdEl) usdEl.innerText = `≈ $${usd} USD`;
+
+    const stables = document.getElementById('wallet-stables');
+    if (stables) {
+        const wallet = state.gameData.wallet || {};
+        const rows = [
+            ['USDT BSC', wallet.USDT_BSC || 0],
+            ['USDT ETH', wallet.USDT_ETH || 0],
+            ['USDC BSC', wallet.USDC_BSC || 0],
+            ['USDC ETH', wallet.USDC_ETH || 0]
+        ];
+        stables.innerHTML = rows.map(([name, value]) =>
+            `<div class="bg-black/30 rounded-lg px-2 py-1"><div class="text-[8px] text-slate-500 font-bold">${name}</div><div class="text-[11px] font-mono text-white">${value}</div></div>`
+        ).join('');
+    }
+
+    const feePreview = document.getElementById('withdraw-fee-preview');
+    const withdrawAmount = Number(document.getElementById('withdraw-amount')?.value || 0);
+    if (feePreview && withdrawAmount > 0) {
+        const fee = Math.round(withdrawAmount * 0.05 * 100) / 100;
+        const net = Math.round((withdrawAmount - fee) * 100) / 100;
+        feePreview.innerText = `Taxa 5% = ${fee}. Líquido ${net}.`;
+    }
 }
 
 export function updateSettingsUI() {
@@ -460,7 +485,7 @@ export function updateInventoryUI() {
             items.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-blue-500/30 transition-all';
-                const icon = item.id === 'pot-hp' ? '🧪' : (item.id === 'pot-mp' ? '⚡' : '🛡️');
+                const icon = item.id === 'pot-hp' ? '🧪' : '⚡';
                 div.innerHTML = `
                     <div class="text-2xl mb-1">${icon}</div>
                     <div class="text-[9px] font-black text-white uppercase text-center leading-tight h-6 flex items-center">${i18n.t(item.nameKey) || item.name}</div>
