@@ -5,17 +5,18 @@ import i18n from './i18n.js';
 export class MarketplaceService {
     static getShopItems() {
         return [
-            { id: 'fire-red', element: 'fire', color: 'red', price: 1500 },
-            { id: 'water-blue', element: 'water', color: 'blue', price: 1200 },
-            { id: 'earth-green', element: 'earth', color: 'green', price: 1000 },
-            { id: 'air-yellow', element: 'air', color: 'yellow', price: 1100 }
+            { id: 'fire-red', element: 'fire', color: 'red', price: 150 },
+            { id: 'water-blue', element: 'water', color: 'blue', price: 120 },
+            { id: 'earth-green', element: 'earth', color: 'green', price: 100 },
+            { id: 'air-yellow', element: 'air', color: 'yellow', price: 110 }
         ];
     }
 
     static getCombatItems() {
         return [
             { id: 'pot-hp', nameKey: 'shop-item-hp-name', type: 'heal', value: 50, price: 200, icon: '🧪' },
-            { id: 'pot-mp', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, price: 150, icon: '⚡' }
+            { id: 'pot-mp', nameKey: 'shop-item-mp-name', type: 'energy', value: 50, price: 150, icon: '⚡' },
+            { id: 'item-shield', nameKey: 'shop-item-shield-name', type: 'guard', value: 2, price: 300, icon: '🛡️' }
         ];
     }
 

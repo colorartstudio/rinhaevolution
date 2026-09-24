@@ -3,10 +3,32 @@ export const WATER_ARENA_HEAL_BASE = 30;
 /** 0.70 = −30% sobre a recuperação a cada especial de água na mesma luta (30 → 21 → 14,7 …). */
 export const WATER_ARENA_HEAL_DECAY = 0.70;
 
+/** Multiplicador inicial da Tempestade do Pico (especial de arena do Ar). */
+export const AIR_ARENA_MULT_BASE = 2.0;
+/** 0.80 = −20% por acerto da tempestade (2 → 1,6 → 1,28 → …). */
+export const AIR_ARENA_MULT_DECAY = 0.80;
+/** Piso do multiplicador por acerto da tempestade. */
+export const AIR_ARENA_MULT_FLOOR = 1.0;
+
 /** % de cura do Dilúvio para o N-ésimo uso (0 = primeiro). */
 export function waterArenaHealPercent(usesSoFar = 0) {
     const n = Math.max(0, Math.floor(usesSoFar) || 0);
     return WATER_ARENA_HEAL_BASE * Math.pow(WATER_ARENA_HEAL_DECAY, n);
+}
+
+/** Multiplicador do N-ésimo acerto da Tempestade (0 = primeiro). */
+export function airArenaHitMultiplier(hitIndex = 0) {
+    const n = Math.max(0, Math.floor(hitIndex) || 0);
+    return Math.max(
+        AIR_ARENA_MULT_FLOOR,
+        AIR_ARENA_MULT_BASE * Math.pow(AIR_ARENA_MULT_DECAY, n)
+    );
+}
+
+/** Multiplicador efetivo de um hit (decai só no especial de arena do Ar). */
+export function skillHitMultiplier(skill, hitIndex = 0) {
+    if (skill?.id === 'a-arena') return airArenaHitMultiplier(hitIndex);
+    return skill?.multiplier ?? 1;
 }
 
 /**
@@ -46,7 +68,7 @@ export const SKILLS = {
         { id: 'a1', nameKey: 'skill-a1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', descKey: 'skill-a1-desc' },
         { id: 'a5', nameKey: 'skill-a5-name', level: 5, multiplier: 0.5, cost: 25, type: 'buff', effect: 'dodge', chance: 0.4, duration: 1, descKey: 'skill-a5-desc' },
         { id: 'a10', nameKey: 'skill-a10-name', level: 10, multiplier: 0.6, cost: 50, hits: 3, descKey: 'skill-a10-desc' },
-        { id: 'a-arena', nameKey: 'skill-a-arena-name', level: 1, multiplier: 2.3, cost: 0, type: 'ultimate', hits: 5, descKey: 'skill-a-arena-desc', arenaReq: 'air', charge: 2 }
+        { id: 'a-arena', nameKey: 'skill-a-arena-name', level: 1, multiplier: AIR_ARENA_MULT_BASE, cost: 0, type: 'ultimate', hits: 5, descKey: 'skill-a-arena-desc', arenaReq: 'air', charge: 2 }
     ]
 };
 
