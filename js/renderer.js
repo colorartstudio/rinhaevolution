@@ -105,7 +105,7 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGh
                   fill="rgba(0,0,0,0.2)" stroke="none"/>
 
             <!-- Cabeça de Elite -->
-            <g transform="translate(155, 45)">
+            <g class="rooster-head" transform="translate(155, 45)">
                 <!-- Crista de Galo Realista -->
                 <path d="M-10,25 C-25,-5 -10,-15 5,5 C10,-15 30,-15 35,10 C45,-10 65,0 55,30 C50,45 20,45 10,40" 
                       fill="#ef4444" stroke="#7f1d1d" stroke-width="2"/>
@@ -116,15 +116,20 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGh
                 <!-- Rosto -->
                 <circle cx="25" cy="40" r="32" fill="url(#gradBody-${containerId})" stroke="#0f172a" stroke-width="2.5"/>
                 
-                <!-- Bico Forte -->
-                <path d="M52,35 L75,42 L52,52 Z" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/>
-                <path d="M52,42 L65,42" stroke="#b45309" stroke-width="1" opacity="0.5"/>
+                <!-- Bico fechado (estado normal) -->
+                <path class="rooster-beak" d="M52,35 L75,42 L52,52 Z" fill="#fbbf24" stroke="#b45309" stroke-width="1.5"/>
+                <path class="rooster-beak-line" d="M52,42 L65,42" stroke="#b45309" stroke-width="1" opacity="0.5"/>
+                <!-- Bico aberto — só aparece nas expressões do especial -->
+                <g class="rooster-beak-open">
+                    <path d="M48,30 L86,12 L56,40 Z" fill="#fbbf24" stroke="#b45309" stroke-width="1.2"/>
+                    <path d="M48,50 L86,72 L56,44 Z" fill="#f59e0b" stroke="#b45309" stroke-width="1.2"/>
+                </g>
                 
                 <!-- Olho Expressivo -->
-                <circle cx="35" cy="38" r="7" fill="white"/>
-                <circle cx="37" cy="38" r="4" fill="black"/>
-                <circle cx="38" cy="36" r="1.5" fill="white"/>
-                <path d="M28,30 L45,34" stroke="black" stroke-width="3" stroke-linecap="round"/>
+                <circle class="rooster-eye-white" cx="35" cy="38" r="7" fill="white"/>
+                <circle class="rooster-pupil" cx="37" cy="38" r="4" fill="black"/>
+                <circle class="rooster-eye-glint" cx="38" cy="36" r="1.5" fill="white"/>
+                <path class="rooster-brow" d="M28,30 L45,34" stroke="black" stroke-width="3" stroke-linecap="round"/>
             </g>
 
             <!-- Patas com Esporas -->

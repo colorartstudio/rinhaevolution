@@ -278,8 +278,9 @@
             </div>
         </div>
 
-        <h2 class="text-xs font-black text-yellow-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <i class="fas fa-egg"></i> <span data-i18n="shop-new-roosters">Novos Galos</span>
+        <h2 class="text-xs font-black text-yellow-500 uppercase tracking-widest mb-4 flex items-center justify-between gap-2">
+            <span class="flex items-center gap-2"><i class="fas fa-egg"></i> <span data-i18n="shop-new-roosters">Novos Galos</span></span>
+            <span id="shop-flock-total" class="text-[10px] font-mono font-bold text-white normal-case tracking-normal">Plantel: 0 galos</span>
         </h2>
         <div class="overflow-y-auto max-h-[40vh] pr-1 mb-8 custom-scrollbar">
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -290,6 +291,14 @@
         <h2 class="text-xl font-display text-yellow-500 uppercase italic mb-4" data-i18n="shop-auction">Leilão em Destaque</h2>
         <div id="auction-list" class="space-y-4">
             <!-- Leilões gerados via JS -->
+        </div>
+    </div>
+
+    <div id="purchase-notice" class="hidden fixed inset-0 z-[1200] flex items-center justify-center bg-black/70 p-6">
+        <div class="bg-slate-900 border border-yellow-500/40 rounded-3xl p-6 max-w-xs w-full text-center shadow-2xl">
+            <h3 id="purchase-notice-title" class="text-white font-black uppercase tracking-wide text-sm"></h3>
+            <p id="purchase-notice-detail" class="text-yellow-400 font-mono mt-3 text-sm leading-relaxed"></p>
+            <button type="button" onclick="window.app.closePurchaseNotice()" class="mt-5 w-full py-3 bg-yellow-500 text-black font-black uppercase rounded-xl" data-i18n="shop-notice-ok">OK</button>
         </div>
     </div>
 
@@ -416,29 +425,35 @@
     </div>
 
     <!-- GAME STATE: BREEDING SCREEN -->
-    <div id="screen-breeding" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6">
-        <header class="mb-6">
+    <div id="screen-breeding" class="hidden screen-container w-full max-w-5xl mx-auto p-4 md:p-6 pb-28">
+        <header class="mb-4">
             <h1 class="text-3xl font-display text-white uppercase italic tracking-tighter" data-i18n="lab-title">LABORATÓRIO DE FUSÃO</h1>
             <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest" data-i18n="lab-subtitle">Combine DNA para criar galos lendários</p>
+            <p id="lab-hint" class="text-[11px] text-yellow-500/80 mt-2" data-i18n="lab-hint">Toque num galo da mochila para colocá-lo no laboratório. A fusão consome os dois pais.</p>
         </header>
 
-        <div class="flex flex-col md:flex-row gap-6 items-center justify-center mb-8">
-            <div id="breed-parent-1" onclick="window.app.selectBreedingParent(1)" class="w-32 h-32 sm:w-40 sm:h-40 bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-all">
-                <i class="fas fa-plus text-slate-700 text-2xl"></i>
-                <div class="text-[8px] text-slate-600 font-black uppercase mt-2" data-i18n="lab-parent-1">Pai 1</div>
+        <div class="flex gap-3 items-end justify-center mb-3">
+            <div class="flex flex-col items-center gap-1">
+                <div id="breed-parent-1" onclick="window.app.clearBreedingSlot(1)" class="w-28 h-28 sm:w-36 sm:h-36 bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden"></div>
+                <div id="breed-parent-1-label" class="text-[10px] font-black text-slate-400 uppercase">Pai 1</div>
             </div>
-            <i class="fas fa-bolt text-yellow-500 text-3xl animate-pulse"></i>
-            <div id="breed-parent-2" onclick="window.app.selectBreedingParent(2)" class="w-32 h-32 sm:w-40 sm:h-40 bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 transition-all">
-                <i class="fas fa-plus text-slate-700 text-2xl"></i>
-                <div class="text-[8px] text-slate-600 font-black uppercase mt-2" data-i18n="lab-parent-2">Pai 2</div>
+            <i class="fas fa-bolt text-yellow-500 text-2xl animate-pulse mb-8"></i>
+            <div class="flex flex-col items-center gap-1">
+                <div id="breed-parent-2" onclick="window.app.clearBreedingSlot(2)" class="w-28 h-28 sm:w-36 sm:h-36 bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-3xl flex flex-col items-center justify-center cursor-pointer overflow-hidden"></div>
+                <div id="breed-parent-2-label" class="text-[10px] font-black text-slate-400 uppercase">Pai 2</div>
             </div>
+        </div>
+        <p id="lab-preview" class="text-center text-[11px] font-bold text-cyan-300 mb-3 min-h-[1.25rem]"></p>
+        <div id="lab-fusion-card" class="hidden max-w-md mx-auto mb-4 bg-slate-900/80 border border-cyan-500/30 rounded-3xl p-4 text-center"></div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 text-center max-w-md mx-auto mb-6">
+            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2" data-i18n="lab-cost-label">Custo da Fusão</div>
+            <div id="breeding-cost" class="text-3xl font-mono font-bold text-yellow-500 mb-4">0 RC</div>
+            <button id="btn-breed-action" onclick="window.app.executeBreeding()" disabled class="w-full py-4 bg-slate-800 text-slate-500 font-black text-lg uppercase tracking-widest rounded-2xl shadow-lg cursor-not-allowed transition-all border-b-4 border-slate-950" data-i18n="lab-button">FUSIONAR DNA</button>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center max-w-md mx-auto">
-            <div class="text-xs text-slate-400 font-bold uppercase tracking-widest mb-4" data-i18n="lab-cost-label">Custo da Fusão</div>
-            <div id="breeding-cost" class="text-3xl font-mono font-bold text-yellow-500 mb-6">0 RC</div>
-            <button id="btn-breed-action" onclick="window.app.executeBreeding()" disabled class="w-full py-4 bg-slate-800 text-slate-500 font-black text-xl uppercase tracking-widest rounded-2xl shadow-lg cursor-not-allowed transition-all border-b-4 border-slate-950" data-i18n="lab-button">FUSIONAR DNA</button>
-        </div>
+        <h2 class="text-xs font-black text-yellow-500 uppercase tracking-widest mb-3" data-i18n="lab-flock">Seus galos</h2>
+        <div id="lab-flock" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
     </div>
 
     <!-- GAME STATE: BATTLE ARENA -->
@@ -706,6 +721,7 @@
                         <div id="fusion-stat-hp" class="text-xl font-black text-green-400">0</div>
                     </div>
                 </div>
+                <div id="fusion-lineage" class="mt-4 text-[11px] font-black text-cyan-300 uppercase"></div>
             </div>
 
             <button onclick="window.app.closeFusionSuccess()" class="px-12 py-5 bg-gradient-to-r from-yellow-400 to-orange-600 text-black font-black text-xl uppercase tracking-[0.2em] rounded-2xl shadow-[0_10px_30px_rgba(255,165,0,0.3)] hover:scale-105 transition-transform active:scale-95" data-i18n="fus-save-btn">
@@ -945,6 +961,7 @@
         import { MissionService } from './js/missions.js';
         import { TournamentService } from './js/tournament.js';
         import { BreedingService } from './js/breeding.js';
+        import { describeFusion } from './js/fusion-abilities.js';
         import { MatchLogService } from './js/matchLog.js';
         import { TeamService } from './js/team.js';
         import { AudioEngine } from './js/audio.js';
@@ -1340,18 +1357,25 @@
                 AudioEngine.playClick();
             },
             selectedBreedingParents: [null, null],
-            selectBreedingParent: (index) => {
-                const roosters = state.gameData.inventory.roosters;
-                if (roosters.length < 2) return alert(i18n.t('lab-error-min'));
-                
-                const available = roosters.filter(r => !window.app.selectedBreedingParents.includes(r));
-                if (available.length === 0) return alert(i18n.t('lab-error-available'));
-                
-                const parent = available[Math.floor(Math.random() * available.length)];
-                window.app.selectedBreedingParents[index-1] = parent;
-                
-                renderAvatar(`breed-parent-${index}`, parent.element, parent.color, parent.dna?.skin || 'none');
+            pickLabRooster: (id) => {
+                const rooster = state.gameData.inventory.roosters.find(r => r.id === id);
+                if (!rooster) return;
+                const sel = window.app.selectedBreedingParents;
+                if (sel[0]?.id === id) sel[0] = null;
+                else if (sel[1]?.id === id) sel[1] = null;
+                else if (!sel[0]) sel[0] = rooster;
+                else if (!sel[1]) sel[1] = rooster;
+                else sel[1] = rooster;
+                AudioEngine.playClick();
                 updateBreedingUI();
+            },
+            clearBreedingSlot: (index) => {
+                window.app.selectedBreedingParents[index - 1] = null;
+                AudioEngine.playClick();
+                updateBreedingUI();
+            },
+            selectBreedingParent: (index) => {
+                window.app.clearBreedingSlot(index);
             },
             executeBreeding: async () => {
                 const [p1, p2] = window.app.selectedBreedingParents;
@@ -1394,6 +1418,20 @@
                 document.getElementById('fusion-dna-code').innerText = rooster.dna.code;
                 document.getElementById('fusion-stat-atk').innerText = rooster.atk;
                 document.getElementById('fusion-stat-hp').innerText = rooster.hp_max;
+                const lineage = document.getElementById('fusion-lineage');
+                if (lineage) {
+                    const other = rooster.secondaryElement || rooster.element;
+                    const spec = describeFusion(rooster.element, other);
+                    const a = i18n.t('el-' + rooster.element);
+                    const b = rooster.secondaryElement ? i18n.t('el-' + rooster.secondaryElement) : a;
+                    if (spec?.kind === 'hybrid') {
+                        lineage.textContent = `${i18n.t(spec.nameKey)} · ${a} + ${b}`;
+                    } else if (spec?.kind === 'evolution') {
+                        lineage.textContent = `${i18n.t(spec.nameKey)} · ${i18n.t(spec.passiveNameKey)}`;
+                    } else {
+                        lineage.textContent = `${ELEMENTS[rooster.element].icon} ${a}`;
+                    }
+                }
                 
                 // Configura Badge de Raridade com cores dinâmicas
                 badge.innerText = rooster.dna.rarity;
@@ -1445,22 +1483,37 @@
             buyRooster: async (el, col, price) => {
                 const res = await MarketplaceService.buyRooster(el, col, price);
                 if (res.success) {
-                    alert(i18n.t('shop-success-buy'));
                     updateBalanceUI();
+                    updateInventoryUI();
                     updateShopUI();
+                    const name = i18n.t('el-' + el);
+                    showPurchaseNotice(
+                        i18n.t('shop-bought-rooster', { name }),
+                        i18n.t('shop-now-roosters', { n: countRoosters(el), name, total: countRoosters() })
+                    );
                 } else {
-                    alert(i18n.t('shop-error-balance'));
+                    showPurchaseNotice(i18n.t('shop-error-balance'), '');
                 }
             },
             buyItem: async (id, price) => {
                 const res = await MarketplaceService.buyItem(id, price);
                 if (res.success) {
-                    alert(i18n.t('shop-success-item'));
                     updateBalanceUI();
+                    updateInventoryUI();
                     updateShopUI();
+                    const shopItem = MarketplaceService.getCombatItems().find(i => i.id === id);
+                    const name = i18n.t(shopItem?.nameKey || 'shop-success-item');
+                    const n = state.gameData.inventory.items.find(i => i.id === id)?.count || 0;
+                    showPurchaseNotice(
+                        i18n.t('shop-bought-item', { name }),
+                        i18n.t('shop-now-item', { n })
+                    );
                 } else {
-                    alert(i18n.t('shop-error-balance'));
+                    showPurchaseNotice(i18n.t('shop-error-balance'), '');
                 }
+            },
+            closePurchaseNotice: () => {
+                document.getElementById('purchase-notice')?.classList.add('hidden');
             },
             bid: async (id, amount) => {
                 const res = await AuctionEngine.bid(id, amount);
@@ -1623,29 +1676,52 @@
             document.getElementById('bottom-nav').classList.remove('hidden');
         }
 
+        function countRoosters(element) {
+            const list = state.gameData.inventory.roosters || [];
+            return element ? list.filter(r => r.element === element).length : list.length;
+        }
+
+        function showPurchaseNotice(title, detail) {
+            const box = document.getElementById('purchase-notice');
+            const titleEl = document.getElementById('purchase-notice-title');
+            const detailEl = document.getElementById('purchase-notice-detail');
+            if (!box || !titleEl || !detailEl) return;
+            titleEl.textContent = title;
+            detailEl.textContent = detail;
+            box.classList.remove('hidden');
+            AudioEngine.playClick();
+        }
+
         async function updateShopUI() {
             const combatList = document.getElementById('combat-items-list');
             combatList.innerHTML = '';
             MarketplaceService.getCombatItems().forEach(item => {
+                const count = state.gameData.inventory.items.find(i => i.id === item.id)?.count || 0;
                 const div = document.createElement('div');
                 div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-yellow-500/50 transition-all';
                 div.innerHTML = `
                     <div class="text-2xl mb-1">${item.icon}</div>
                     <div class="text-[8px] xs:text-[9px] font-black text-white uppercase text-center leading-tight h-6 flex items-center">${i18n.t(item.nameKey)}</div>
+                    <div class="text-[9px] font-bold text-slate-400">${i18n.t('shop-owned')} <span class="text-white">${count}</span></div>
                     <div class="text-xs font-mono font-bold text-yellow-400">${item.price} RC</div>
                     <button onclick="window.app.buyItem('${item.id}', ${item.price})" class="w-full py-2 bg-slate-800 text-yellow-500 text-[9px] font-black uppercase rounded-lg border border-yellow-500/30 active:scale-95 transition-all">${i18n.t('shop-buy-btn')}</button>
                 `;
                 combatList.appendChild(div);
             });
 
+            const flock = document.getElementById('shop-flock-total');
+            if (flock) flock.textContent = i18n.t('shop-flock-total', { n: countRoosters() });
+
             const shopList = document.getElementById('shop-list');
             shopList.innerHTML = '';
             MarketplaceService.getShopItems().forEach(item => {
+                const owned = countRoosters(item.element);
                 const div = document.createElement('div');
                 div.className = 'bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl hover:border-yellow-500/50 transition-all';
                 div.innerHTML = `
                     <div class="w-16 h-16 xs:w-20 xs:h-20" id="shop-item-${item.id}"></div>
                     <div class="text-[10px] font-black text-white uppercase">${i18n.t(`el-${item.element}`)}</div>
+                    <div class="text-[9px] font-bold text-slate-400">${i18n.t('shop-owned')} <span class="text-white">${owned}</span></div>
                     <div class="text-base font-mono font-bold text-yellow-400">${item.price} RC</div>
                     <button onclick="window.app.buyRooster('${item.element}', '${item.color}', ${item.price})" class="w-full py-2 bg-yellow-500 text-black text-[9px] font-black uppercase rounded-lg active:scale-95 transition-all">${i18n.t('shop-buy-btn')}</button>
                 `;
@@ -1836,26 +1912,109 @@
             `).join('');
         }
 
+        function paintBreedSlot(slot, rooster, labelKey) {
+            const box = document.getElementById(`breed-parent-${slot}`);
+            const label = document.getElementById(`breed-parent-${slot}-label`);
+            if (!box) return;
+            if (!rooster) {
+                box.innerHTML = `<i class="fas fa-plus text-slate-700 text-2xl"></i><div class="text-[8px] text-slate-600 font-black uppercase mt-2">${i18n.t(labelKey)}</div>`;
+                box.classList.remove('border-yellow-400');
+                if (label) label.textContent = i18n.t(labelKey);
+                return;
+            }
+            box.innerHTML = '';
+            box.classList.add('border-yellow-400');
+            const avatar = document.createElement('div');
+            avatar.id = `breed-avatar-${slot}`;
+            avatar.className = 'w-full h-full';
+            box.appendChild(avatar);
+            renderAvatar(`breed-avatar-${slot}`, rooster.element, rooster.color, rooster.dna?.skin || 'none');
+            const second = rooster.secondaryElement ? ` + ${ELEMENTS[rooster.secondaryElement].icon}` : '';
+            if (label) label.textContent = `${ELEMENTS[rooster.element].icon} ${i18n.t('el-' + rooster.element)}${second}`;
+        }
+
         function updateBreedingUI() {
-            const [p1, p2] = window.app.selectedBreedingParents;
+            const [p1, p2] = window.app.selectedBreedingParents || [null, null];
+            paintBreedSlot(1, p1, 'lab-parent-1');
+            paintBreedSlot(2, p2, 'lab-parent-2');
+
+            const preview = document.getElementById('lab-preview');
+            const card = document.getElementById('lab-fusion-card');
+            if (preview) preview.textContent = '';
+            if (card) {
+                card.classList.add('hidden');
+                card.innerHTML = '';
+            }
+            if (p1 && p2 && card) {
+                const spec = describeFusion(p1.element, p2.element);
+                if (spec?.kind === 'hybrid') {
+                    const a = `${ELEMENTS[spec.elements[0]].icon} ${i18n.t('el-' + spec.elements[0])}`;
+                    const b = `${ELEMENTS[spec.elements[1]].icon} ${i18n.t('el-' + spec.elements[1])}`;
+                    card.innerHTML = `
+                        <div class="text-[10px] font-black uppercase tracking-widest text-cyan-300">${i18n.t('lab-fusion-skill')}</div>
+                        <div class="text-lg font-black text-white mt-1">${i18n.t(spec.nameKey)}</div>
+                        <p class="text-[12px] text-slate-300 mt-1">${i18n.t(spec.descKey)}</p>
+                        <p class="text-[11px] text-amber-200 mt-2">${i18n.t('lab-fusion-either', { a, b })}</p>
+                        <p class="text-[11px] text-slate-400 mt-2">${i18n.t('lab-fusion-body', { a, b })}</p>
+                    `;
+                } else if (spec?.kind === 'evolution') {
+                    const icon = ELEMENTS[spec.element].icon;
+                    card.innerHTML = `
+                        <div class="text-[10px] font-black uppercase tracking-widest text-cyan-300">${i18n.t('lab-fusion-evolution')}</div>
+                        <div class="text-lg font-black text-white mt-1">${icon} ${i18n.t(spec.nameKey)}</div>
+                        <p class="text-[12px] text-slate-300 mt-1">${i18n.t(spec.descKey)}</p>
+                        <div class="text-[10px] font-black uppercase tracking-widest text-amber-300 mt-3">${i18n.t('lab-fusion-passive')}</div>
+                        <div class="text-sm font-black text-white">${i18n.t(spec.passiveNameKey)}</div>
+                        <p class="text-[12px] text-slate-300 mt-1">${i18n.t(spec.passiveDescKey)}</p>
+                    `;
+                }
+                if (spec) card.classList.remove('hidden');
+            }
+
+            const flock = document.getElementById('lab-flock');
+            if (flock) {
+                const roosters = state.gameData.inventory.roosters || [];
+                flock.innerHTML = '';
+                if (!roosters.length) {
+                    flock.innerHTML = `<div class="col-span-full text-center text-[11px] text-slate-500 uppercase py-6">${i18n.t('lab-empty')}</div>`;
+                }
+                roosters.forEach(r => {
+                    const picked = p1?.id === r.id ? 1 : (p2?.id === r.id ? 2 : 0);
+                    const card = document.createElement('button');
+                    card.type = 'button';
+                    card.onclick = () => window.app.pickLabRooster(r.id);
+                    card.className = `text-left bg-slate-900/70 border rounded-2xl p-2 flex flex-col items-center gap-1 ${picked ? 'border-yellow-400 ring-2 ring-yellow-500/40' : 'border-slate-800'}`;
+                    const dual = r.secondaryElement ? `${ELEMENTS[r.element].icon}+${ELEMENTS[r.secondaryElement].icon}` : ELEMENTS[r.element].icon;
+                    card.innerHTML = `
+                        <div id="lab-bird-${r.id}" class="w-16 h-16"></div>
+                        <div class="text-[10px] font-black text-white uppercase">${dual} ${i18n.t('el-' + r.element)}</div>
+                        <div class="text-[8px] text-slate-400">${i18n.t('col-' + r.color + '-name')} · Nv ${r.level}</div>
+                        <div class="text-[8px] font-black ${picked ? 'text-yellow-400' : 'text-slate-600'}">${picked ? 'PAI ' + picked : i18n.t('lab-pick')}</div>
+                    `;
+                    flock.appendChild(card);
+                    renderAvatar(`lab-bird-${r.id}`, r.element, r.color, r.dna?.skin || 'none');
+                });
+            }
+
             const btn = document.getElementById('btn-breed-action');
             const costEl = document.getElementById('breeding-cost');
-            
+            if (!btn || !costEl) return;
+
             if (p1 && p2) {
                 const cost = BreedingService.getBreedingCost(p1, p2);
                 costEl.innerText = `${cost} RC`;
                 btn.disabled = state.gameData.balance < cost;
                 if (btn.disabled) {
-                    btn.classList.add('bg-slate-800', 'text-slate-500');
+                    btn.classList.add('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
                     btn.classList.remove('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'animate-pulse');
                 } else {
-                    btn.classList.remove('bg-slate-800', 'text-slate-500');
+                    btn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
                     btn.classList.add('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'animate-pulse');
                 }
             } else {
                 costEl.innerText = `0 RC`;
                 btn.disabled = true;
-                btn.classList.add('bg-slate-800', 'text-slate-500');
+                btn.classList.add('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
                 btn.classList.remove('bg-gradient-to-r', 'from-yellow-500', 'to-orange-600', 'text-white', 'animate-pulse');
             }
         }

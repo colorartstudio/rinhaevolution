@@ -8,14 +8,21 @@ export const RHYTHM_BREAKER_ID = 'rhythm-break';
 
 export const RHYTHM = {
     MAX: 100,
-    /** Ganho por ação ofensiva concluída (~4 turnos para encher). */
+    /** Ganho só no ataque básico (~4 bicadas para encher). */
     ACTION_GAIN: 26,
-    /** Bônus extra ao acertar com ultimate de arena. */
-    ULT_BONUS: 10,
     /** Usar poção de cura: perde ritmo e cede vantagem ao rival. */
     HEAL_ITEM_PENALTY: 38,
     HEAL_ITEM_FOE_GAIN: 14
 };
+
+/** Ataque básico (1x, 0 MP). Único golpe que enche a barra. */
+export function isBasicRhythmAttack(skill) {
+    if (!skill || skill.type !== 'attack') return false;
+    if ((skill.cost || 0) > 0) return false;
+    if ((skill.multiplier || 0) > 1.05) return false;
+    if ((skill.hits || 1) > 1) return false;
+    return true;
+}
 
 /** Golpe único de desempate — mais forte que o especial de arena. */
 export const RHYTHM_BREAKER_SKILL = {
@@ -26,6 +33,7 @@ export const RHYTHM_BREAKER_SKILL = {
     multiplier: 2.8,
     cost: 0,
     type: 'rhythm',
+    style: 'breaker',
     hits: 1
 };
 
@@ -81,13 +89,29 @@ function syncReady(state, side) {
     }
 }
 
-/** Após golpe ofensivo (skill). Não chama para item. */
-export function applyRhythmAfterAction(state, side, { usedUlt = false, usedBreaker = false } = {}) {
+function emptyRhythmBar(state, side) {
+    if (side === 'player') {
+        state.player = 0;
+        state.playerReady = false;
+    } else {
+        state.cpu = 0;
+        state.cpuReady = false;
+    }
+    return state;
+}
+
+/**
+ * Ataque básico enche. Especial de arena esvazia a barra (Street Fighter).
+ * Outros golpes não mexem no ritmo. Quebra-Ritmo já zera em consumeRhythmBreaker.
+ */
+export function applyRhythmAfterAction(state, side, { usedUlt = false, usedBreaker = false, usedBasic = false } = {}) {
     if (!state?.active || usedBreaker) return state;
+    if (usedUlt) return emptyRhythmBar(state, side);
+    if (!usedBasic) return state;
     if (side === 'player' && state.playerReady) return state;
     if (side === 'cpu' && state.cpuReady) return state;
 
-    const gain = RHYTHM.ACTION_GAIN + (usedUlt ? RHYTHM.ULT_BONUS : 0);
+    const gain = RHYTHM.ACTION_GAIN;
     if (side === 'player') {
         state.player = clamp(state.player + gain);
         syncReady(state, 'player');
@@ -163,7 +187,7 @@ export function renderRhythmUI(state) {
     if (label) {
         label.textContent = state.playerReady || state.cpuReady
             ? 'RITMO CHEIO — Golpe de Desempate liberado'
-            : 'RITMO — força espelhada: encha a barra para desempatar';
+            : 'RITMO — só o ataque básico enche; o especial esvazia a barra';
     }
 }
 

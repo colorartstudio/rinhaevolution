@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import i18n from './i18n.js';
+import { describeFusion } from './fusion-abilities.js';
 
 export class BreedingService {
     static getBreedingCost(r1, r2) {
@@ -16,16 +16,24 @@ export class BreedingService {
         // 2. DNA Engineering
         const element = Math.random() > 0.5 ? r1.element : r2.element;
         const color = Math.random() > 0.5 ? r1.color : r2.color;
-        
-        // Poder na REGRA: createRooster já aplica base do elemento + 2×nível (sem inflar ATK).
+        const different = r1.element !== r2.element;
+        const secondaryElement = different
+            ? (element === r1.element ? r2.element : r1.element)
+            : null;
+        const signature = describeFusion(r1.element, r2.element);
+
         const newRooster = state.constructor.createRooster(element, color, 1);
-        
+        newRooster.secondaryElement = secondaryElement;
+        newRooster.forged = true;
+
         const rarityRoll = Math.random();
-        const rarity = rarityRoll > 0.95 ? 'legendary' : (rarityRoll > 0.8 ? 'rare' : 'common');
+        let rarity = rarityRoll > 0.95 ? 'legendary' : (rarityRoll > 0.8 ? 'rare' : 'common');
+        if ((secondaryElement || signature?.kind === 'evolution') && rarity === 'common') rarity = 'rare';
         let skin = 'none';
 
-        // Lógica de Skin Rara
-        const skinChance = rarity === 'legendary' ? 0.6 : (rarity === 'rare' ? 0.3 : 0.05);
+        const skinChance = (secondaryElement || signature?.kind === 'evolution')
+            ? (rarity === 'legendary' ? 0.85 : 0.55)
+            : (rarity === 'legendary' ? 0.6 : (rarity === 'rare' ? 0.3 : 0.05));
         if (Math.random() < skinChance) {
             const possibleSkins = rarity === 'legendary' ? ['gold', 'ghost', 'neon'] : ['neon', 'ruby', 'shadow'];
             skin = possibleSkins[Math.floor(Math.random() * possibleSkins.length)];
@@ -38,12 +46,17 @@ export class BreedingService {
             }
         }
 
+        if (skin === 'none' && (secondaryElement || signature?.kind === 'evolution')) skin = 'neon';
+
         newRooster.dna = {
             code: Math.random().toString(36).substring(2, 12).toUpperCase(),
             parents: [r1.id, r2.id],
             generation: Math.max(r1.dna?.generation || 1, r2.dna?.generation || 1) + 1,
             rarity: rarity,
-            skin: skin
+            skin: skin,
+            secondaryElement,
+            fusionId: signature?.kind === 'hybrid' ? signature.id : null,
+            evolution: signature?.kind === 'evolution' ? signature.id : null
         };
 
         state.gameData.inventory.roosters = state.gameData.inventory.roosters.filter(r => r.id !== r1.id && r.id !== r2.id);

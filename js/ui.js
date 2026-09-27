@@ -375,6 +375,7 @@ export async function updateShopUI() {
             div.innerHTML = `
                 <div class="w-16 h-16 sm:w-20 sm:h-20" id="shop-item-${item.id}"></div>
                 <div class="text-[10px] font-black text-white uppercase">${i18n.t(`el-${item.element}`)}</div>
+                <div class="text-[9px] font-bold text-slate-400">${i18n.t('shop-owned')} <span class="text-white">${(state.gameData.inventory.roosters || []).filter(r => r.element === item.element).length}</span></div>
                 <div class="text-base font-mono font-bold text-yellow-400">${item.price} RC</div>
                 <button onclick="window.app.buyRooster('${item.element}', '${item.color}', ${item.price})" class="w-full py-2 bg-yellow-500 text-black text-[9px] font-black uppercase rounded-lg active:scale-95 transition-all">${i18n.t('shop-buy-btn')}</button>
             `;

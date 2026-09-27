@@ -132,6 +132,31 @@ export const AudioEngine = {
         }
         this.playAttack();
     },
+    /** Grito de galo no impacto do especial (cocoricó curto e agudo). */
+    playRoosterScream: function() {
+        this.init();
+        if (state.gameData.settings.muteSFX || !this.ctx || !this.sfxGain) return;
+        const t = this.ctx.currentTime;
+        const cry = (start, from, to, dur, type, vol) => {
+            const osc = this.ctx.createOscillator();
+            const gn = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(from, t + start);
+            osc.frequency.exponentialRampToValueAtTime(Math.max(40, to), t + start + dur);
+            gn.gain.setValueAtTime(0.0001, t + start);
+            gn.gain.exponentialRampToValueAtTime(vol, t + start + 0.03);
+            gn.gain.exponentialRampToValueAtTime(0.0001, t + start + dur);
+            osc.connect(gn);
+            gn.connect(this.sfxGain);
+            osc.start(t + start);
+            osc.stop(t + start + dur + 0.02);
+        };
+        cry(0.00, 420, 880, 0.16, 'sawtooth', 0.22);
+        cry(0.14, 640, 1180, 0.18, 'square', 0.16);
+        cry(0.30, 980, 420, 0.38, 'sawtooth', 0.2);
+        this.playNoise(0.22, 'bandpass', 1800, 4, 0.08);
+    },
+
     playHit: function() { this.playTone(100, 'square', 0.15, 0.2); },
     playCrit: function() { this.playTone(800, 'sawtooth', 0.1, 0.1); setTimeout(() => this.playTone(600, 'square', 0.2, 0.2), 50); },
     playWin: function() { [261, 329, 392, 523].forEach((f, i) => setTimeout(() => this.playTone(f, 'square', 0.3, 0.1), i * 150)); },
