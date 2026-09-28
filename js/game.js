@@ -1,7 +1,7 @@
 import { state, ELEMENTS, COLORS, ARENAS } from './state.js';
 import { AudioEngine } from './audio.js';
 import { VFX } from './vfx.js';
-import { renderAvatar, applyKnockout } from './renderer.js';
+import { renderAvatar, renderRooster, applyKnockout } from './renderer.js';
 import { 
     updateBalanceUI, 
     updateSettingsUI, 
@@ -44,6 +44,10 @@ import {
 } from './rhythm-breaker.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+/** Tempo extra para o especial da arena ficar na tela antes do golpe fechar. */
+const SPECIAL_WATCH_MS = 1500;
+/** Pausa extra com o alvo no especial, antes da próxima jogada. */
+const SPECIAL_TARGET_MS = 500;
 let playerActionResolve = null;
 /** Escudo de loja no turno atual (1v1 ou slot 3v3) — menu de itens e UI de combate. */
 let currentBattleItemGuardTurns = 0;
@@ -75,11 +79,12 @@ function isBasicStrike(skill) {
     return skill?.type === 'attack';
 }
 
-/** Golpe básico: o galo sai do lugar e espora o alvo. Especiais ficam no slot. */
-async function playBasicCharge(attacker, target, skill, blocked = false, style = 'peck') {
+/** Golpe básico: o movimento vem do elemento (faísca, névoa, cascalho, corte). */
+async function playBasicCharge(attacker, target, skill, blocked = false, style) {
     if (!attacker?.isConnected || !target?.isConnected) return false;
+    const motion = style || skill?.style || 'peck';
     AudioEngine.playAttack();
-    await VFX.chargeStrike(attacker, target, style, {
+    await VFX.chargeStrike(attacker, target, motion, {
         trail: skill?.element || 'fire',
         onImpact: () => {
             if (blocked) {
@@ -621,7 +626,7 @@ function startGame() {
             const slotId = `player-slot-${i}`;
             if (pTeam[i]) {
                 safeRemoveClass(slotId, 'hidden');
-                renderAvatar(`player-avatar-${i}`, pTeam[i].element, pTeam[i].color, pTeam[i].dna?.skin || 'none');
+                renderRooster(`player-avatar-${i}`, pTeam[i]);
             } else {
                 safeAddClass(slotId, 'hidden');
             }
@@ -685,26 +690,22 @@ function startGame() {
 
 
 
-function showFinalResult3v3(playerWon, report) {
+async function showFinalResult3v3(playerWon, report) {
     const pGrid = document.getElementById('player-avatars-grid');
     const cGrid = document.getElementById('cpu-avatars-grid');
     
     if (playerWon === true) {
         if (pGrid) pGrid.classList.add('anim-winner-l');
         if (cGrid) cGrid.classList.add('opacity-50', 'grayscale');
-        AudioEngine.playWin();
     } else if (playerWon === false) {
         if (cGrid) cGrid.classList.add('anim-winner-r');
         if (pGrid) pGrid.classList.add('opacity-50', 'grayscale');
-        AudioEngine.playLoss();
     } else {
-        // Empate
         if (pGrid) pGrid.classList.add('opacity-80');
         if (cGrid) cGrid.classList.add('opacity-80');
-        AudioEngine.playClick();
     }
     
-    showDetailedResult(playerWon, report);
+    await openResultScreen(playerWon, report);
 }
 
 async function showPlayerSkills(rooster, itemGuardTurns = 0, rhythm = null) {
@@ -941,6 +942,7 @@ function pickCpuBattleSkill(rooster, arenaId, { hpRatio = 1, opponentHpRatio = 1
 }
 
 async function battleSequence() {
+    AudioEngine.prepareMatchAudio();
     if (state.gameMode === '3v3') {
         await battleSequence3v3();
         return;
@@ -1058,7 +1060,7 @@ async function battleSequence() {
                 cStatus.shield = 1;
 
                 const isUltimateArenaSkill = ultimateIsLive(skill);
-                const charged = (isBasicStrike(skill) || skill.type === 'rhythm') && await playBasicCharge(pAv, cAv, skill, false, skill.type === 'rhythm' ? 'breaker' : 'peck');
+                const charged = (isBasicStrike(skill) || skill.type === 'rhythm') && await playBasicCharge(pAv, cAv, skill, false, skill.type === 'rhythm' ? 'breaker' : skill.style);
                 if (!charged) {
                     if (pAv && isUltimateArenaSkill) {
                         const elClass = `arena-magic-${pRooster.element}`;
@@ -1072,7 +1074,7 @@ async function battleSequence() {
                     } else {
                         AudioEngine.playAttack();
                     }
-                    await sleep(300);
+                    await sleep(300 + (isUltimateArenaSkill ? SPECIAL_WATCH_MS : 0));
                     if (cAv) cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
                 }
                 
@@ -1155,7 +1157,8 @@ async function battleSequence() {
                 renderRhythmUI(rhythm);
             }
 
-            await sleep(400); 
+            const targetTookSpecial = action.type === 'skill' && ultimateIsLive(skillsFor(pRooster).find(s => s.id === action.id));
+            await sleep(400 + (targetTookSpecial ? SPECIAL_TARGET_MS : 0)); 
             if (pAv) pAv.classList.remove('anim-lunge-up', 'anim-wing-flap', 'arena-magic-cast', 'arena-magic-fire', 'arena-magic-water', 'arena-magic-earth', 'arena-magic-air'); 
             if (cAv) cAv.classList.remove('anim-hit'); 
             await sleep(600);
@@ -1230,7 +1233,7 @@ async function battleSequence() {
             // CPU Attack Visuals
             const isCpuUltimate = cSkill.type === 'ultimate' && cSkill.arenaReq === state.currentArena?.id;
             
-            const cpuBasic = (isBasicStrike(cSkill) || cSkill.type === 'rhythm') && await playBasicCharge(cAv, pAv, cSkill, guardBlocksHit, cSkill.type === 'rhythm' ? 'breaker' : 'peck');
+            const cpuBasic = (isBasicStrike(cSkill) || cSkill.type === 'rhythm') && await playBasicCharge(cAv, pAv, cSkill, guardBlocksHit, cSkill.type === 'rhythm' ? 'breaker' : cSkill.style);
             if (!cpuBasic) {
                 if (isCpuUltimate) {
                     const elClass = `arena-magic-${cRooster.element}`;
@@ -1241,7 +1244,7 @@ async function battleSequence() {
                     if (cAv) cAv.classList.add('anim-lunge-down', 'anim-wing-flap'); 
                     AudioEngine.playAttack(); 
                 }
-                await sleep(300);
+                await sleep(300 + (isCpuUltimate ? SPECIAL_WATCH_MS : 0));
             }
             if (guardBlocksHit) {
                 if (pAv) {
@@ -1285,7 +1288,7 @@ async function battleSequence() {
                 renderRhythmUI(rhythm);
             }
 
-            await sleep(400); 
+            await sleep(400 + (isCpuUltimate ? SPECIAL_TARGET_MS : 0)); 
             if (cAv) cAv.classList.remove('anim-lunge-down', 'anim-wing-flap', 'arena-magic-cast', 'arena-magic-fire', 'arena-magic-water', 'arena-magic-earth', 'arena-magic-air'); 
             if (pAv) pAv.classList.remove('anim-hit'); 
             await sleep(600);
@@ -1334,24 +1337,19 @@ async function battleSequence() {
     if (result === 'win') {
         pAv.classList.add('anim-winner-l');
         if (cAv?.dataset.knockedOut !== '1') applyKnockout(cAv, 'r', cRooster, false);
-        AudioEngine.playWin();
         triggerHaptic('heavy');
     } else if (result === 'loss') {
         cAv.classList.add('anim-winner-r');
         if (pAv?.dataset.knockedOut !== '1') applyKnockout(pAv, 'l', pRooster, true);
-        else AudioEngine.playLoss();
         triggerHaptic('heavy');
     } else {
-        // Tie visual: Both looking a bit tired but no KO
         pAv.classList.add('opacity-80');
         cAv.classList.add('opacity-80');
-        AudioEngine.playClick();
     }
 
     const winValue = result === 'win' ? true : (result === 'loss' ? false : null);
     saveMatchResult(winValue, pRooster.element, pRooster.color);
-    await sleep(2500); 
-    
+
     // Recalcular bônus para o relatório (Regra Geral: Elemento, Cor e Arena)
     let pTotal = 0;
     let cTotal = 0;
@@ -1365,7 +1363,7 @@ async function battleSequence() {
         c: { base: cForce.base, final: cForce.power, arena: cForce.arenaOn, color: cForce.colorOn }
     };
     
-    showDetailedResult(winValue, report);
+    await openResultScreen(winValue, report);
 }
 
 let currentTargetIdx = 0;
@@ -1450,7 +1448,7 @@ async function battleSequence3v3() {
     let pItemGuardTurns = pTeam.map(() => 0);
 
     // Renderizar Avatares Iniciais
-    pTeam.forEach((r, idx) => renderAvatar(`player-avatar-${idx}`, r.element, r.color, r.dna?.skin || 'none'));
+    pTeam.forEach((r, idx) => renderRooster(`player-avatar-${idx}`, r));
     cTeam.forEach((r, idx) => renderAvatar(`cpu-avatar-${idx}`, r.element, r.color, 'none'));
 
     // Reset UI
@@ -1495,10 +1493,10 @@ async function battleSequence3v3() {
                 setTarget(nextAlive, 'cpu');
             }
             
-            const playerTargetIdx = currentTargetIdx;
+            let playerTargetIdx = currentTargetIdx;
             const pGal = pTeam[pIdx];
             const pAv = document.getElementById(`player-avatar-${pIdx}`);
-            const cAv = document.getElementById(`cpu-avatar-${playerTargetIdx}`);
+            let cAv = document.getElementById(`cpu-avatar-${playerTargetIdx}`);
             
             // Aplica Efeitos Visuais de Foco (Game Design)
             pTeam.forEach((_, i) => {
@@ -1520,6 +1518,18 @@ async function battleSequence3v3() {
                 await sleep(700);
             } else {
             let action = await showPlayerSkills(pGal, pItemGuardTurns[pIdx]);
+
+            if (cHP[currentTargetIdx] <= 0) {
+                const nextAlive = cHP.findIndex(h => h > 0);
+                if (nextAlive === -1) break;
+                setTarget(nextAlive, 'cpu');
+            }
+            if (currentTargetIdx !== playerTargetIdx) {
+                if (cAv) cAv.classList.remove('target-rooster');
+                playerTargetIdx = currentTargetIdx;
+                cAv = document.getElementById(`cpu-avatar-${playerTargetIdx}`);
+                if (cAv) cAv.classList.add('target-rooster');
+            }
 
             if (action.type === 'skill') {
                 if (pItemGuardTurns[pIdx] > 0) {
@@ -1581,7 +1591,7 @@ async function battleSequence3v3() {
                     } else {
                         AudioEngine.playAttack();
                     }
-                    await sleep(300);
+                    await sleep(300 + (isUltimateArenaSkill ? SPECIAL_WATCH_MS : 0));
                     if (cAv) cAv.classList.add('anim-hit'); AudioEngine.playHit(); triggerHaptic('light');
                 }
 
@@ -1663,8 +1673,9 @@ async function battleSequence3v3() {
             const usedUlt = action.type === 'skill' && skillsFor(pGal).find(s => s.id === action.id)?.type === 'ultimate';
             if (usedUlt) pGal.specialCharge = 0;
             else if ((pGal.specialCharge || 0) < 2) pGal.specialCharge = (pGal.specialCharge || 0) + 1;
+            const targetTookSpecial = action.type === 'skill' && ultimateIsLive(skillsFor(pGal).find(s => s.id === action.id));
             updateTotalHP(pHP, cHP, pMaxHP, cMaxHP);
-            await sleep(400); 
+            await sleep(400 + (targetTookSpecial ? SPECIAL_TARGET_MS : 0)); 
             if (pAv) pAv.classList.remove('anim-lunge-up', 'anim-wing-flap', 'arena-magic-cast', 'arena-magic-fire', 'arena-magic-water', 'arena-magic-earth', 'arena-magic-air'); 
             if (cAv) cAv.classList.remove('target-rooster');
             pTeam.forEach((_, i) => {
@@ -1793,7 +1804,7 @@ async function battleSequence3v3() {
                     if (cAv) cAv.classList.add('anim-lunge-down', 'anim-wing-flap');
                     AudioEngine.playAttack();
                 }
-                await sleep(300);
+                await sleep(300 + (isCpuUltimate ? SPECIAL_WATCH_MS : 0));
             }
             if (guardBlocksHit) {
                 if (pAv) {
@@ -1816,7 +1827,7 @@ async function battleSequence3v3() {
             syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
 
             updateTotalHP(pHP, cHP, pMaxHP, cMaxHP);
-            await sleep(400); 
+            await sleep(400 + (isCpuUltimate ? SPECIAL_TARGET_MS : 0)); 
             if (cAv) cAv.classList.remove('anim-lunge-down', 'anim-wing-flap', 'arena-magic-cast', 'arena-magic-fire', 'arena-magic-water', 'arena-magic-earth', 'arena-magic-air'); 
             if (pAv) pAv.classList.remove('target-rooster');
             cTeam.forEach((_, i) => {
@@ -1877,14 +1888,11 @@ async function battleSequence3v3() {
     // Animações Finais
     syncTeamKnockouts(pHP, cHP, pTeam, cTeam);
     if (result === 'win') {
-        AudioEngine.playWin();
         pHP.forEach((h, idx) => {
             const el = document.getElementById(`player-avatar-${idx}`);
             if (h > 0 && el) el.classList.add('anim-winner-l');
         });
     } else if (result === 'loss') {
-        const anyPlayerKo = pHP.some((h, idx) => h <= 0 && document.getElementById(`player-avatar-${idx}`)?.dataset.knockedOut === '1');
-        if (!anyPlayerKo) AudioEngine.playLoss();
         cHP.forEach((h, idx) => {
             const el = document.getElementById(`cpu-avatar-${idx}`);
             if (h > 0 && el) el.classList.add('anim-winner-r');
@@ -1902,8 +1910,7 @@ async function battleSequence3v3() {
         c: { base: cForce.base, final: cForce.power, arena: cForce.arenaOn, color: cForce.colorOn }
     };
 
-    await sleep(3000); 
-    showFinalResult3v3(playerWon, report);
+    await showFinalResult3v3(playerWon, report);
 }
 
 function updateSlotHP(side, idx, percent) {
@@ -2245,6 +2252,13 @@ export async function startChallengeBattle(challengerData) {
     startRouletteSequence();
 }
 
+async function openResultScreen(playerWon, report) {
+    await Promise.all([sleep(650), AudioEngine.whenBlowEnds()]);
+    if (playerWon === true) AudioEngine.playVictory();
+    else if (playerWon === false) AudioEngine.playDefeat();
+    showDetailedResult(playerWon, report);
+}
+
 function showDetailedResult(win, report) {
     const overlay = document.getElementById('result-overlay');
     const card = document.getElementById('result-card');
@@ -2320,5 +2334,5 @@ function showDetailedResult(win, report) {
         const winner = win === true ? 'Você' : (win === false ? 'A CPU' : 'Ninguém');
         reason.innerText = `${winner} ficou com HP. Cada golpe tira 18% da força, no máximo 35% do HP. Escudo, defesa e poção mudam essa conta.`;
     }
-    AudioEngine.playClick();
+    if (win === null) AudioEngine.playClick();
 }

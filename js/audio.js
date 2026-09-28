@@ -6,6 +6,11 @@ export const AudioEngine = {
     sfxGain: null,
     musicOscillators: [],
     noiseBuffer: null,
+    clipBuffers: {},
+    clipLoads: {},
+    activeBlow: Promise.resolve(),
+    blowSource: null,
+    blowToken: 0,
     
     init: function() {
         if (!this.ctx) {
@@ -162,6 +167,93 @@ export const AudioEngine = {
     playWin: function() { [261, 329, 392, 523].forEach((f, i) => setTimeout(() => this.playTone(f, 'square', 0.3, 0.1), i * 150)); },
     playLoss: function() { [400, 380, 360, 340].forEach((f, i) => setTimeout(() => this.playTone(f, 'sawtooth', 0.4, 0.15), i * 300)); },
     playDefeat: function() { this.playTone(150, 'square', 0.5, 0.2); setTimeout(() => this.playTone(100, 'square', 0.4, 0.2), 100); },
+
+    prepareMatchAudio: function() {
+        this.blowToken += 1;
+        this.blowSource = null;
+        this.activeBlow = Promise.resolve();
+        this.init();
+        ['blow_chicken.mp3', 'victory_chicken.mp3', 'defeat_chicken.mp3'].forEach((file) => {
+            this.loadClip(file).catch(() => {});
+        });
+    },
+
+    loadClip: function(file) {
+        if (this.clipBuffers[file]) return Promise.resolve(this.clipBuffers[file]);
+        this.init();
+        if (this.clipLoads[file]) return this.clipLoads[file];
+        const url = `public/assets/sound/${file}`;
+        this.clipLoads[file] = fetch(url)
+            .then((res) => {
+                if (!res.ok) throw new Error(url);
+                return res.arrayBuffer();
+            })
+            .then((raw) => this.ctx.decodeAudioData(raw))
+            .then((buffer) => {
+                this.clipBuffers[file] = buffer;
+                return buffer;
+            })
+            .catch((err) => {
+                delete this.clipLoads[file];
+                throw err;
+            });
+        return this.clipLoads[file];
+    },
+
+    playClip: function(file, hooks = {}) {
+        this.init();
+        if (state.gameData.settings.muteSFX || !this.ctx || !this.sfxGain) return Promise.resolve();
+        return this.loadClip(file).then((buffer) => new Promise((resolve) => {
+            let settled = false;
+            const done = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+            try {
+                const source = this.ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(this.sfxGain);
+                source.onended = done;
+                source.start();
+                if (hooks.onStart) hooks.onStart(source);
+                setTimeout(done, Math.ceil((buffer.duration || 1) * 1000) + 80);
+            } catch (e) {
+                done();
+            }
+        })).catch(() => {});
+    },
+
+    /** Galo tombando. A promessa resolve quando o clipe termina. */
+    playBlow: function() {
+        const token = ++this.blowToken;
+        if (this.blowSource) {
+            const old = this.blowSource;
+            this.blowSource = null;
+            old.onended = null;
+            try { old.stop(); } catch (e) {}
+        }
+        this.activeBlow = this.playClip('blow_chicken.mp3', {
+            onStart: (source) => {
+                if (this.blowToken !== token) {
+                    source.onended = null;
+                    try { source.stop(); } catch (e) {}
+                    return;
+                }
+                this.blowSource = source;
+            }
+        }).finally(() => {
+            if (this.blowToken === token) this.blowSource = null;
+        });
+        return this.activeBlow;
+    },
+
+    whenBlowEnds: function() {
+        return this.activeBlow || Promise.resolve();
+    },
+
+    playVictory: function() { return this.playClip('victory_chicken.mp3'); },
+    playDefeat: function() { return this.playClip('defeat_chicken.mp3'); },
     playClick: function() { this.playTone(800, 'sine', 0.05, 0.05); },
 
     startMusic: function() {

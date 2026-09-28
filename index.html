@@ -961,11 +961,12 @@
         import { MissionService } from './js/missions.js';
         import { TournamentService } from './js/tournament.js';
         import { BreedingService } from './js/breeding.js';
-        import { describeFusion } from './js/fusion-abilities.js';
+        import { describeFusion, mixParts } from './js/fusion-abilities.js';
+        import { fusionLook } from './js/fusion-visuals.js';
         import { MatchLogService } from './js/matchLog.js';
         import { TeamService } from './js/team.js';
         import { AudioEngine } from './js/audio.js';
-        import { renderAvatar } from './js/renderer.js';
+        import { renderAvatar, renderRooster } from './js/renderer.js';
         import { 
             updateBalanceUI, 
             updateSettingsUI, 
@@ -1442,7 +1443,7 @@
                 };
                 badge.className = `absolute -top-4 -right-4 px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest shadow-2xl z-20 rotate-12 ${rarityClasses[rooster.dna.rarity] || rarityClasses.common}`;
 
-                renderAvatar('fusion-new-rooster-avatar', rooster.element, rooster.color, rooster.dna.skin || 'none');
+                renderRooster('fusion-new-rooster-avatar', rooster);
                 
                 // Inicia Sequência Visual Épica
                 overlay.classList.remove('hidden');
@@ -1757,7 +1758,7 @@
                     </div>
                 `;
                 auctionList.appendChild(div);
-                renderAvatar(`auc-item-${item.id}`, item.rooster.element, item.rooster.color, item.rooster.dna?.skin || 'none');
+                renderRooster(`auc-item-${item.id}`, item.rooster);
             });
         }
 
@@ -1928,9 +1929,9 @@
             avatar.id = `breed-avatar-${slot}`;
             avatar.className = 'w-full h-full';
             box.appendChild(avatar);
-            renderAvatar(`breed-avatar-${slot}`, rooster.element, rooster.color, rooster.dna?.skin || 'none');
-            const second = rooster.secondaryElement ? ` + ${ELEMENTS[rooster.secondaryElement].icon}` : '';
-            if (label) label.textContent = `${ELEMENTS[rooster.element].icon} ${i18n.t('el-' + rooster.element)}${second}`;
+            renderRooster(`breed-avatar-${slot}`, rooster);
+            const mix = mixParts(rooster).map(el => `${ELEMENTS[el].icon} ${i18n.t('el-' + el)}`).join(' + ');
+            if (label) label.textContent = mix;
         }
 
         function updateBreedingUI() {
@@ -1984,15 +1985,18 @@
                     card.type = 'button';
                     card.onclick = () => window.app.pickLabRooster(r.id);
                     card.className = `text-left bg-slate-900/70 border rounded-2xl p-2 flex flex-col items-center gap-1 ${picked ? 'border-yellow-400 ring-2 ring-yellow-500/40' : 'border-slate-800'}`;
-                    const dual = r.secondaryElement ? `${ELEMENTS[r.element].icon}+${ELEMENTS[r.secondaryElement].icon}` : ELEMENTS[r.element].icon;
+                    const look = fusionLook(r);
+                    const mix = mixParts(r).map(el => `${ELEMENTS[el].icon} ${i18n.t('el-' + el)}`).join(' + ');
+                    const title = look?.nameKey ? i18n.t(look.nameKey) : mix;
                     card.innerHTML = `
                         <div id="lab-bird-${r.id}" class="w-16 h-16"></div>
-                        <div class="text-[10px] font-black text-white uppercase">${dual} ${i18n.t('el-' + r.element)}</div>
+                        <div class="text-[10px] font-black text-white uppercase leading-tight">${title}</div>
+                        ${look ? `<div class="text-[8px] text-cyan-200/80 uppercase">${mix}</div>` : ''}
                         <div class="text-[8px] text-slate-400">${i18n.t('col-' + r.color + '-name')} · Nv ${r.level}</div>
                         <div class="text-[8px] font-black ${picked ? 'text-yellow-400' : 'text-slate-600'}">${picked ? 'PAI ' + picked : i18n.t('lab-pick')}</div>
                     `;
                     flock.appendChild(card);
-                    renderAvatar(`lab-bird-${r.id}`, r.element, r.color, r.dna?.skin || 'none');
+                    renderRooster(`lab-bird-${r.id}`, r);
                 });
             }
 

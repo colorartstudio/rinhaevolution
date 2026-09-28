@@ -49,25 +49,25 @@ export function applySkillHealAmount(skill, maxHp, rooster = null) {
 
 export const SKILLS = {
     fire: [
-        { id: 'f1', nameKey: 'skill-f1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', style: 'peck', tagKey: 'skill-tag-basic', descKey: 'skill-f1-desc' },
+        { id: 'f1', nameKey: 'skill-f1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', style: 'comet', tagKey: 'skill-tag-basic', descKey: 'skill-f1-desc' },
         { id: 'f5', nameKey: 'skill-f5-name', level: 5, multiplier: 1.2, cost: 30, type: 'technique', style: 'comet', effect: 'ember', tagKey: 'skill-tag-ember', descKey: 'skill-f5-desc' },
         { id: 'f10', nameKey: 'skill-f10-name', level: 10, multiplier: 2.0, cost: 60, type: 'special', style: 'phoenix', effect: 'heal', value: 20, tagKey: 'skill-tag-heal20', descKey: 'skill-f10-desc' },
         { id: 'f-arena', nameKey: 'skill-f-arena-name', level: 1, multiplier: 2.5, cost: 0, type: 'ultimate', style: 'ultimate', effect: 'burn', burnPct: [0.08, 0.03], descKey: 'skill-f-arena-desc', arenaReq: 'fire', charge: 2 }
     ],
     water: [
-        { id: 'w1', nameKey: 'skill-w1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', style: 'peck', tagKey: 'skill-tag-basic', descKey: 'skill-w1-desc' },
+        { id: 'w1', nameKey: 'skill-w1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', style: 'wave', tagKey: 'skill-tag-basic', descKey: 'skill-w1-desc' },
         { id: 'w5', nameKey: 'skill-w5-name', level: 5, multiplier: 0.55, cost: 25, type: 'technique', style: 'shell', effect: 'shield', value: 0.5, tagKey: 'skill-tag-shell', descKey: 'skill-w5-desc' },
         { id: 'w10', nameKey: 'skill-w10-name', level: 10, multiplier: 1.35, cost: 55, type: 'technique', style: 'wave', effect: 'drench', duration: 2, splash: 0.4, tagKey: 'skill-tag-wave', descKey: 'skill-w10-desc' },
         { id: 'w-arena', nameKey: 'skill-w-arena-name', level: 1, multiplier: 2.2, cost: 0, type: 'ultimate', style: 'ultimate', effect: 'heal', value: WATER_ARENA_HEAL_BASE, descKey: 'skill-w-arena-desc', arenaReq: 'water', charge: 2 }
     ],
     earth: [
-        { id: 'e1', nameKey: 'skill-e1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', style: 'peck', tagKey: 'skill-tag-basic', descKey: 'skill-e1-desc' },
+        { id: 'e1', nameKey: 'skill-e1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', style: 'brace', tagKey: 'skill-tag-basic', descKey: 'skill-e1-desc' },
         { id: 'e5', nameKey: 'skill-e5-name', level: 5, multiplier: 0.65, cost: 20, type: 'technique', style: 'brace', effect: 'def', value: 1.5, duration: 2, pierce: true, tagKey: 'skill-tag-brace', descKey: 'skill-e5-desc' },
         { id: 'e10', nameKey: 'skill-e10-name', level: 10, multiplier: 1.35, cost: 50, type: 'technique', style: 'quake', effect: 'stun', chance: 0.35, pierce: true, tagKey: 'skill-tag-quake', descKey: 'skill-e10-desc' },
         { id: 'e-arena', nameKey: 'skill-e-arena-name', level: 1, multiplier: 2.4, cost: 0, type: 'ultimate', style: 'ultimate', effect: 'def', value: 2, duration: 2, descKey: 'skill-e-arena-desc', arenaReq: 'earth', charge: 2 }
     ],
     air: [
-        { id: 'a1', nameKey: 'skill-a1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', style: 'peck', tagKey: 'skill-tag-basic', descKey: 'skill-a1-desc' },
+        { id: 'a1', nameKey: 'skill-a1-name', level: 1, multiplier: 1.0, cost: 0, type: 'attack', style: 'dive', tagKey: 'skill-tag-basic', descKey: 'skill-a1-desc' },
         { id: 'a5', nameKey: 'skill-a5-name', level: 5, multiplier: 0.7, cost: 25, type: 'technique', style: 'dive', effect: 'dodge', chance: 0.45, pierce: true, tagKey: 'skill-tag-dive', descKey: 'skill-a5-desc' },
         { id: 'a10', nameKey: 'skill-a10-name', level: 10, multiplier: 0.52, cost: 50, type: 'technique', style: 'flurry', hits: 3, effect: 'gust', gust: 8, tagKey: 'skill-tag-flurry', descKey: 'skill-a10-desc' },
         { id: 'a-arena', nameKey: 'skill-a-arena-name', level: 1, multiplier: AIR_ARENA_MULT_BASE, cost: 0, type: 'ultimate', style: 'ultimate', hits: 5, descKey: 'skill-a-arena-desc', arenaReq: 'air', charge: 2 }

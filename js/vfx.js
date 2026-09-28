@@ -5,7 +5,7 @@ const FACE_STATES = ['shocked', 'hit', 'agony', 'recover'];
 const cineTimers = new WeakMap();
 
 export const VFX = {
-    createContainer: function(targetElement, life = 2600) {
+    createContainer: function(targetElement, life = 4100) {
         if (!targetElement) return null;
         const cs = window.getComputedStyle(targetElement);
         if (cs.position === 'static') targetElement.style.position = 'relative';
@@ -37,7 +37,7 @@ export const VFX = {
         clearTimeout(this._veilTimer);
         this._veilTimer = setTimeout(() => {
             veil.classList.add('is-out');
-        }, 1700);
+        }, 3200);
     },
 
     agony: function(targetElement, kind) {
@@ -46,7 +46,7 @@ export const VFX = {
         targetElement.classList.remove('vfx-agony-fire', 'vfx-agony-water', 'vfx-agony-earth', 'vfx-agony-air');
         void targetElement.offsetWidth;
         targetElement.classList.add(cls);
-        const life = kind === 'air' ? 2600 : 2300;
+        const life = kind === 'air' ? 4100 : 3800;
         setTimeout(() => targetElement.classList.remove(cls), life);
     },
 
@@ -74,7 +74,7 @@ export const VFX = {
             AudioEngine.playRoosterScream();
         });
         later(1080, () => { if (defender.isConnected) this.setFace(defender, 'agony'); });
-        const recoverAt = element === 'air' ? 2500 : 1850;
+        const recoverAt = element === 'air' ? 4000 : 3350;
         later(recoverAt, () => { if (defender.isConnected) this.setFace(defender, 'recover'); });
         later(recoverAt + 420, () => this._clearCinematic(defender));
     },
@@ -268,7 +268,7 @@ export const VFX = {
     playAir: function(targetElement) {
         this.beginCinematic('air');
         this.agony(targetElement, 'air');
-        const container = this.createContainer(targetElement, 2800);
+        const container = this.createContainer(targetElement, 4300);
         if (!container) return;
 
         for (let i = 0; i < 3; i++) {
@@ -310,7 +310,7 @@ export const VFX = {
         this.playSpecialCinematic({ defender: targetElement, attacker: attackerElement, element: look.veil });
         this.beginCinematic(look.veil);
         this.agony(targetElement, look.agony);
-        const container = this.createContainer(targetElement, 2600);
+        const container = this.createContainer(targetElement, 4100);
         if (!container) return;
         spawnFusionBits(container, look.mode);
     },
@@ -492,12 +492,12 @@ function spawnFusionBits(container, mode) {
 
 const CHARGE_PROFILES = {
     peck: { duration: 560, arc: -0.22, stop: 0.84, pecks: 1 },
-    comet: { duration: 720, arc: -0.5, stop: 0.9, pecks: 1 },
+    comet: { duration: 820, arc: -0.95, stop: 0.92, pecks: 1 },
     shell: { duration: 640, arc: 0.12, stop: 0.82, pecks: 1, self: true },
-    wave: { duration: 800, arc: -0.14, stop: 0.96, pecks: 1 },
-    brace: { duration: 680, arc: 0.2, stop: 0.74, pecks: 1 },
+    wave: { duration: 980, arc: -0.05, stop: 0.98, pecks: 1 },
+    brace: { duration: 620, arc: 0.48, stop: 0.62, pecks: 1 },
     quake: { duration: 860, arc: -0.68, stop: 0.88, pecks: 1 },
-    dive: { duration: 780, arc: -0.78, stop: 0.86, pecks: 1 },
+    dive: { duration: 760, arc: -1.12, stop: 0.76, pecks: 2 },
     flurry: { duration: 960, arc: -0.3, stop: 0.82, pecks: 3 },
     phoenix: { duration: 820, arc: -0.72, stop: 0.84, pecks: 1 },
     ultimate: { duration: 900, arc: -0.42, stop: 0.8, pecks: 2 },

@@ -1,7 +1,7 @@
 import { state, ELEMENTS, COLORS } from './state.js';
 import { AudioEngine } from './audio.js';
 import i18n from './i18n.js';
-import { renderAvatar } from './renderer.js';
+import { renderAvatar, renderRooster } from './renderer.js';
 import { MarketplaceService, AuctionEngine } from './marketplace.js';
 import { TeamService } from './team.js';
 import { ReferralService } from './referral.js';
@@ -9,6 +9,8 @@ import { referralUILabelPercents } from './referral-economy.js';
 import { MissionService } from './missions.js';
 import { MatchLogService } from './matchLog.js';
 import { BreedingService } from './breeding.js';
+import { mixParts } from './fusion-abilities.js';
+import { fusionLook } from './fusion-visuals.js';
 
 export function toggleModal(id) {
     const modal = document.getElementById(id);
@@ -278,7 +280,7 @@ export function updatePreview() {
                     <div class="text-[8px] font-black text-white uppercase bg-black/40 px-2 py-0.5 rounded-full border border-white/10">${i18n.t(`el-${gal.element}`)} ${i18n.t('gen-lvl-prefix')} ${gal.level}</div>
                 `;
                 teamContainer.appendChild(div);
-                renderAvatar(`team-preview-item-${gal.id}`, gal.element, gal.color, gal.dna?.skin || 'none');
+                renderRooster(`team-preview-item-${gal.id}`, gal);
             });
 
             // Fallback se o time estiver incompleto
@@ -413,7 +415,7 @@ export async function updateShopUI() {
                 </div>
             `;
             auctionList.appendChild(div);
-            renderAvatar(`auc-item-${item.id}`, item.rooster.element, item.rooster.color, item.rooster.dna?.skin || 'none');
+            renderRooster(`auc-item-${item.id}`, item.rooster);
         });
     }
 }
@@ -468,7 +470,7 @@ export function showRoosterSelectorForItem(itemId) {
             <div class="text-[10px] font-mono font-bold text-slate-500 group-hover:text-yellow-500">${hpPercent}%</div>
         `;
         list.appendChild(btn);
-        renderAvatar(`selector-avatar-${idx}`, r.element, r.color, r.dna?.skin || 'none');
+        renderRooster(`selector-avatar-${idx}`, r);
     });
 
     toggleModal(modalId);
@@ -509,7 +511,12 @@ export function updateInventoryUI() {
     }
     state.gameData.inventory.roosters.forEach(gal => {
         const inTeam = state.gameData.teams.active.includes(gal.id);
-        const hasSkin = gal.dna?.skin && gal.dna.skin !== 'none';
+        const look = fusionLook(gal);
+        const hasSkin = !look && gal.dna?.skin && gal.dna.skin !== 'none';
+        const parts = mixParts(gal);
+        const mixNames = parts.map(el => i18n.t(`el-${el}`)).join(' + ');
+        const icons = parts.map(el => ELEMENTS[el]?.icon || '').join('');
+        const title = look?.nameKey ? i18n.t(look.nameKey) : mixNames;
         
         // Calcular HP atual real
         const currentHP = gal.hp_current || gal.hp || gal.hp_max || 100;
@@ -518,6 +525,7 @@ export function updateInventoryUI() {
 
         const div = document.createElement('div');
         div.className = `bg-slate-900/50 backdrop-blur-md border ${inTeam ? 'border-yellow-500/50 shadow-yellow-500/10' : 'border-slate-800'} rounded-2xl p-3 flex items-center gap-3 shadow-xl transition-all`;
+        if (look?.glow && !inTeam) div.style.boxShadow = `0 0 16px ${look.glow}33`;
         div.innerHTML = `
             <div class="relative flex-shrink-0">
                 <div class="w-14 h-14 sm:w-16 sm:h-16" id="inv-item-${gal.id}"></div>
@@ -525,12 +533,14 @@ export function updateInventoryUI() {
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between mb-1">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                        <div class="text-[10px] font-black text-white uppercase truncate">${i18n.t(`el-${gal.element}`)}</div>
+                    <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+                        ${look ? `<span class="text-[11px] leading-none">${icons}</span>` : ''}
+                        <div class="text-[10px] font-black text-white uppercase leading-tight">${title}</div>
                         ${gal.dna?.rarity === 'legendary' ? '<span class="text-[6px] bg-orange-500/20 text-orange-400 px-1 rounded font-black">LEGENDARY</span>' : ''}
                     </div>
                     <div class="text-[8px] font-mono ${hpPercent < 30 ? 'text-red-500' : 'text-green-500'} font-bold">${hpPercent}% HP</div>
                 </div>
+                ${look ? `<div class="text-[8px] font-bold uppercase tracking-tight text-cyan-200/80 mb-1">${mixNames}</div>` : ''}
                 <div class="text-[8px] text-slate-500 font-bold uppercase tracking-tighter mb-2">${i18n.t('gen-level')} ${gal.level} • XP ${gal.xp}</div>
                 
                 <div class="flex gap-2">
@@ -544,7 +554,7 @@ export function updateInventoryUI() {
             </div>
         `;
         invList.appendChild(div);
-        renderAvatar(`inv-item-${gal.id}`, gal.element, gal.color, gal.dna?.skin || 'none');
+        renderRooster(`inv-item-${gal.id}`, gal);
     });
 }
 

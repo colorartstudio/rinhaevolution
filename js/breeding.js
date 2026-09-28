@@ -15,6 +15,7 @@ export class BreedingService {
 
         // 2. DNA Engineering
         const element = Math.random() > 0.5 ? r1.element : r2.element;
+        // Campo de vantagem de cor no combate. O sprite do forjado não usa esta pintura.
         const color = Math.random() > 0.5 ? r1.color : r2.color;
         const different = r1.element !== r2.element;
         const secondaryElement = different
@@ -29,24 +30,8 @@ export class BreedingService {
         const rarityRoll = Math.random();
         let rarity = rarityRoll > 0.95 ? 'legendary' : (rarityRoll > 0.8 ? 'rare' : 'common');
         if ((secondaryElement || signature?.kind === 'evolution') && rarity === 'common') rarity = 'rare';
-        let skin = 'none';
-
-        const skinChance = (secondaryElement || signature?.kind === 'evolution')
-            ? (rarity === 'legendary' ? 0.85 : 0.55)
-            : (rarity === 'legendary' ? 0.6 : (rarity === 'rare' ? 0.3 : 0.05));
-        if (Math.random() < skinChance) {
-            const possibleSkins = rarity === 'legendary' ? ['gold', 'ghost', 'neon'] : ['neon', 'ruby', 'shadow'];
-            skin = possibleSkins[Math.floor(Math.random() * possibleSkins.length)];
-        }
-
-        // Herança de Skin (Se um pai tem, chance aumenta)
-        if (skin === 'none' && (r1.dna?.skin !== 'none' || r2.dna?.skin !== 'none')) {
-            if (Math.random() < 0.4) {
-                skin = r1.dna?.skin !== 'none' ? r1.dna.skin : r2.dna.skin;
-            }
-        }
-
-        if (skin === 'none' && (secondaryElement || signature?.kind === 'evolution')) skin = 'neon';
+        // A pintura do forjado vem da paleta da fusão, não de um filtro de skin.
+        const skin = 'none';
 
         newRooster.dna = {
             code: Math.random().toString(36).substring(2, 12).toUpperCase(),

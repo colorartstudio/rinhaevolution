@@ -1,7 +1,81 @@
 import { ELEMENTS, COLORS, SKINS } from './state.js';
 import { AudioEngine } from './audio.js';
+import { fusionLook } from './fusion-visuals.js';
 
-export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGhost = false) {
+function fusionAura(aura, glow) {
+    if (aura === 'steam') return `
+        <g class="fusion-aura" fill="#e0f2fe">
+            <circle cx="78" cy="168" r="5" opacity="0.45"><animate attributeName="cy" values="170;95" dur="2.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.45;0" dur="2.6s" repeatCount="indefinite"/></circle>
+            <circle cx="118" cy="150" r="4" fill="${glow}" opacity="0.35"><animate attributeName="cy" values="160;88" dur="3.1s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0" dur="3.1s" repeatCount="indefinite"/></circle>
+            <circle cx="96" cy="140" r="3" opacity="0.3"><animate attributeName="cy" values="150;80" dur="2.2s" repeatCount="indefinite"/></circle>
+        </g>`;
+    if (aura === 'magma') return `
+        <g class="fusion-aura">
+            <circle cx="92" cy="188" r="7" fill="${glow}" opacity="0.35"><animate attributeName="opacity" values="0.2;0.55;0.2" dur="1.4s" repeatCount="indefinite"/></circle>
+            <circle cx="132" cy="176" r="4" fill="#f97316" opacity="0.5"><animate attributeName="cy" values="178;150" dur="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.55;0" dur="1.8s" repeatCount="indefinite"/></circle>
+            <path d="M118,168 L128,156 L136,170" fill="none" stroke="${glow}" stroke-width="2" opacity="0.7"/>
+        </g>`;
+    if (aura === 'fire_wind') return `
+        <g class="fusion-aura" fill="none" stroke="${glow}" stroke-width="2" opacity="0.55">
+            <path d="M48,150 C70,140 78,168 100,158"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="1.6s" repeatCount="indefinite"/></path>
+            <path d="M40,128 C68,118 80,146 104,132" stroke="#fff7ed"/>
+            <circle cx="150" cy="120" r="3" fill="#fde68a" stroke="none" opacity="0.6"/>
+        </g>`;
+    if (aura === 'mud') return `
+        <g class="fusion-aura">
+            <circle cx="108" cy="198" r="6" fill="#78350f" opacity="0.45"/>
+            <circle cx="148" cy="192" r="4" fill="#0f766e" opacity="0.4"/>
+            <circle cx="128" cy="210" r="3" fill="${glow}" opacity="0.35"><animate attributeName="cy" values="206;214;206" dur="2.4s" repeatCount="indefinite"/></circle>
+        </g>`;
+    if (aura === 'storm') return `
+        <g class="fusion-aura">
+            <path d="M70,118 L82,140 L74,140 L90,168" fill="none" stroke="#e0f2fe" stroke-width="2" opacity="0.7"><animate attributeName="opacity" values="0.15;0.8;0.15" dur="1.3s" repeatCount="indefinite"/></path>
+            <circle cx="150" cy="100" r="3" fill="${glow}" opacity="0.6"><animate attributeName="opacity" values="0.2;0.8;0.2" dur="0.9s" repeatCount="indefinite"/></circle>
+            <circle cx="60" cy="140" r="2.5" fill="#7dd3fc" opacity="0.5"/>
+        </g>`;
+    if (aura === 'sand') return `
+        <g class="fusion-aura" fill="#d6d3d1">
+            <circle cx="70" cy="140" r="2.5" opacity="0.7"><animate attributeName="cx" values="60;150;60" dur="3s" repeatCount="indefinite"/><animate attributeName="cy" values="150;110;150" dur="3s" repeatCount="indefinite"/></circle>
+            <circle cx="120" cy="100" r="2" fill="#a8a29e" opacity="0.55"><animate attributeName="cx" values="130;70;130" dur="3.6s" repeatCount="indefinite"/></circle>
+            <circle cx="160" cy="170" r="2" fill="${glow}" opacity="0.45"/>
+        </g>`;
+    if (aura === 'embers') return `
+        <g class="fusion-aura" fill="${glow}">
+            <circle cx="90" cy="160" r="3" opacity="0.6"><animate attributeName="cy" values="170;110" dur="1.7s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.7;0" dur="1.7s" repeatCount="indefinite"/></circle>
+            <circle cx="130" cy="150" r="2.5" fill="#fbbf24"><animate attributeName="cy" values="160;100" dur="2.1s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0" dur="2.1s" repeatCount="indefinite"/></circle>
+        </g>`;
+    if (aura === 'tide') return `
+        <g class="fusion-aura" fill="none" stroke="${glow}" stroke-width="2" opacity="0.45">
+            <path d="M50,190 C80,176 110,204 150,188"><animate attributeName="d" dur="2.4s" repeatCount="indefinite" values="M50,190 C80,176 110,204 150,188; M50,186 C80,200 110,172 150,192; M50,190 C80,176 110,204 150,188"/></path>
+            <path d="M60,204 C90,190 120,214 155,200" stroke="#22d3ee"/>
+        </g>`;
+    if (aura === 'stone') return `
+        <g class="fusion-aura" fill="${glow}" opacity="0.35">
+            <path d="M64,168 L72,156 L80,168 Z"/>
+            <path d="M150,188 L160,174 L170,190 Z" fill="#a8a29e"/>
+            <circle cx="110" cy="200" r="3" fill="#78716c"/>
+        </g>`;
+    if (aura === 'gale') return `
+        <g class="fusion-aura" fill="none" stroke="#f8fafc" stroke-width="1.5" opacity="0.55">
+            <path d="M46,130 C80,120 90,150 130,136"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="2s" repeatCount="indefinite"/></path>
+            <path d="M40,154 C78,144 96,170 140,154" stroke="${glow}"/>
+        </g>`;
+    return '';
+}
+
+export function renderRooster(containerId, rooster, isGhost = false) {
+    const look = fusionLook(rooster);
+    renderAvatar(
+        containerId,
+        rooster?.element,
+        rooster?.color,
+        look ? 'none' : (rooster?.dna?.skin || 'none'),
+        isGhost,
+        look
+    );
+}
+
+export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGhost = false, look = null) {
     let container = document.getElementById(containerId + '-avatar');
     if (!container) container = document.getElementById(containerId);
     if (!container) return;
@@ -10,9 +84,12 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGh
     let bodyColor = isGhost ? '#4b5563' : '#cbd5e1'; 
     let darkColor = isGhost ? '#1f2937' : '#64748b';
     
-    if (!isGhost && colorKey && COLORS[colorKey]) { 
-        bodyColor = COLORS[colorKey].hex; 
-        darkColor = COLORS[colorKey].dark; 
+    if (!isGhost && look?.primary) {
+        bodyColor = look.primary;
+        darkColor = look.dark || '#334155';
+    } else if (!isGhost && colorKey && COLORS[colorKey]) {
+        bodyColor = COLORS[colorKey].hex;
+        darkColor = COLORS[colorKey].dark;
     }
     
     const elData = ELEMENTS[type];
@@ -23,10 +100,18 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGh
     
     if (isGhost) {
         filterStyle = `style="filter: grayscale(1) opacity(0.5) contrast(0.8)"`;
+    } else if (look?.primary) {
+        filterStyle = '';
     }
 
-    const tailFill1 = isGhost ? '#374151' : elData.tailColor1; 
-    const tailFill2 = isGhost ? '#111827' : elData.tailColor2;
+    const tailFill1 = isGhost ? '#374151' : (look?.primary || elData.tailColor1);
+    const tailFill2 = isGhost ? '#111827' : (look?.secondary || elData.tailColor2);
+    const wingFill = look && !isGhost ? look.secondary : darkColor;
+    const wingMark = look && !isGhost ? look.glow : 'rgba(0,0,0,0.2)';
+    const aura = look && !isGhost ? fusionAura(look.aura, look.glow) : '';
+    const bodyMark = look && !isGhost
+        ? `<path d="M112,150 C138,138 168,168 150,188" fill="none" stroke="${look.secondary}" stroke-width="4" stroke-linecap="round" opacity="0.8"/>`
+        : '';
     
     // --- Sistema de Cauda Profissional (Penas em Camadas) ---
     let tailGroup = "";
@@ -89,6 +174,7 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGh
         <g>
             <!-- Cauda de Galo Profissional -->
             ${tailGroup}
+            ${aura}
 
             <!-- Corpo Anatômico do Galo -->
             <path d="M100,100 
@@ -97,12 +183,13 @@ export function renderAvatar(containerId, type, colorKey, skinKey = 'none', isGh
                      C180,220 130,235 90,210 
                      C65,190 60,140 100,100" 
                   fill="url(#gradBody-${containerId})" stroke="#0f172a" stroke-width="2.5"/>
+            ${bodyMark}
             
-            <!-- Detalhe da Asa -->
+            <!-- Detalhe da Asa: no híbrido carrega o elemento herdado -->
             <path class="rooster-wing" d="M125,135 C125,135 175,115 185,165 C155,185 130,170 125,135" 
-                  fill="${darkColor}" opacity="0.8" stroke="#0f172a" stroke-width="1.5"/>
+                  fill="${wingFill}" opacity="0.9" stroke="#0f172a" stroke-width="1.5"/>
             <path d="M140,145 C140,145 170,130 175,160 C155,175 140,165 140,145" 
-                  fill="rgba(0,0,0,0.2)" stroke="none"/>
+                  fill="${wingMark}" stroke="none"/>
 
             <!-- Cabeça de Elite -->
             <g class="rooster-head" transform="translate(155, 45)">
@@ -188,9 +275,9 @@ export function showDeadEyes(container) {
  * @param {string|HTMLElement} containerId
  * @param {'l'|'r'} facing — l jogador, r CPU (espelhado)
  * @param {{ element, color, dna? }|null} rooster — re-render em cinza
- * @param {boolean} isPlayerSide — som de derrota do jogador (playLoss) vs nocaute (playDefeat)
+ * @param {boolean} [_isPlayerSide] — reservado; o tombo sempre usa blow_chicken
  */
-export function applyKnockout(containerId, facing = 'l', rooster = null, isPlayerSide = false) {
+export function applyKnockout(containerId, facing = 'l', rooster = null, _isPlayerSide = false) {
     const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
     if (!container || container.dataset.knockedOut === '1') return;
 
@@ -200,7 +287,7 @@ export function applyKnockout(containerId, facing = 'l', rooster = null, isPlaye
     if (rooster) {
         const skin = rooster.dna?.skin || 'none';
         const id = container.id || containerId;
-        renderAvatar(id, rooster.element, rooster.color, skin, true);
+        renderAvatar(id, rooster.element, rooster.color, skin, true, fusionLook(rooster));
     } else {
         showDeadEyes(container);
     }
@@ -208,6 +295,5 @@ export function applyKnockout(containerId, facing = 'l', rooster = null, isPlaye
     container.classList.remove('anim-ko-l', 'anim-ko-r');
     container.classList.add(koClass, 'grayscale', 'opacity-60');
 
-    if (isPlayerSide) AudioEngine.playLoss();
-    else AudioEngine.playDefeat();
+    AudioEngine.playBlow();
 }

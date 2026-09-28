@@ -129,6 +129,16 @@ export function evolutionSpec(idOrElement) {
     return Object.values(SAME_ELEMENT_FUSION).find(spec => spec.id === idOrElement) || null;
 }
 
+/** Corpo e elemento herdado. Galo puro devolve só o corpo. */
+export function mixParts(rooster) {
+    const body = rooster?.element;
+    if (!body) return [];
+    const second = rooster.secondaryElement || rooster.dna?.secondaryElement;
+    if (second && second !== body) return [body, second];
+    if (rooster.forged || rooster.dna?.evolution) return [body, body];
+    return [body];
+}
+
 export function describeFusion(elA, elB) {
     if (!elA || !elB) return null;
     if (elA === elB) {
