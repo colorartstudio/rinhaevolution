@@ -5,10 +5,10 @@ Esta aplicação foi otimizada para ser hospedada como um site estático no Verc
 ## Passos para Deploy
 
 1. **Conecte seu Repositório**: No painel do Vercel, importe este repositório.
-2. **Configuração de Build**:
-   - **Framework Preset**: Other (ou deixe em branco, o Vercel detectará automaticamente).
-   - **Build Command**: Deixe vazio.
-   - **Output Directory**: `.` (diretório raiz).
+2. **Configuração de Build** (o `vercel.json` já define isto; não force a pasta `public` no painel):
+   - **Framework Preset**: Other.
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
 3. **Variáveis de Ambiente**:
    Embora as chaves do Supabase estejam atualmente no arquivo `js/supabase.js` para funcionamento imediato sem build step, recomenda-se configurar as seguintes variáveis no painel do Vercel para referência futura ou se decidir usar um bundler:
    - `SUPABASE_URL`
