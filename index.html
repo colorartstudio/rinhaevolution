@@ -318,8 +318,10 @@
             </div>
         </div>
 
+        <div id="team-order-bar" class="hidden mb-6"></div>
+
         <h2 class="text-xs font-black text-yellow-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <i class="fas fa-recycal"></i> <span data-i18n="inv-my-roosters">Meus Galos</span>
+            <i class="fas fa-recycle"></i> <span data-i18n="inv-my-roosters">Meus Galos</span>
         </h2>
         <div class="overflow-y-auto max-h-[50vh] pr-1 mb-20 custom-scrollbar">
             <div id="inventory-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1354,6 +1356,7 @@
                 if (screenId === 'leaderboard') updateLeaderboardUI();
                 if (screenId === 'logs') updateLogsUI();
                 if (screenId === 'breeding') updateBreedingUI();
+                if (screenId === 'selection') updatePreview();
                 
                 AudioEngine.playClick();
             },
@@ -1548,14 +1551,22 @@
                 updatePreview();
                 AudioEngine.playClick();
             },
-            toggleTeamMember: (id) => {
+            toggleTeamMember: async (id) => {
                 if (state.gameData.teams.active.includes(id)) {
-                    TeamService.removeFromTeam(id);
+                    await TeamService.removeFromTeam(id);
                 } else {
-                    const res = TeamService.addToTeam(id);
+                    const res = await TeamService.addToTeam(id);
                     if (!res.success) alert(i18n.t('btl-error-team'));
                 }
                 updateInventoryUI();
+                updatePreview();
+                AudioEngine.playClick();
+            },
+            moveTeamMember: (id, direction) => {
+                const res = TeamService.moveInTeam(id, Number(direction));
+                if (!res.success) return;
+                updateInventoryUI();
+                updatePreview();
                 AudioEngine.playClick();
             },
             sellRooster: async (id) => {
